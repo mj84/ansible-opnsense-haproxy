@@ -1,0 +1,30 @@
+---
+# tasks file for local.maj.opnsense.haproxy
+- name: Manage opnsense haproxy users
+  opnsense_haproxy_user:
+    url: https://xxx
+    api_key: 'xxx'
+    api_secret: 'xxx'
+    username: 'xxx'
+    password: 'xxx'
+    description: 'xxx'
+- name: Manage opnsense haproxy acls
+  opnsense_haproxy_acl:
+    url: https://xxx
+    api_key: 'xxx'
+    api_secret: 'xxx'
+    aclname: 'hostname_xxx_xxx_xx'
+    description: 'xxx'
+    condition_type: 'hdr'
+    condition_value: 'xxx.xxx.xx'
+- name: Manage opnsense haproxy actions
+  opnsense_haproxy_action:
+    url: https://xxx
+    api_key: 'xxx'
+    api_secret: 'xxx'
+    actionname: 'header_set_hsts'
+    description: 'Set HSTS header'
+    action_type: 'http-response_set-header'
+    action_value: 'Strict-Transport-Security::max-age=15768000'
+    linked_acls:
+    - hostname_xxx_xxx_xx
