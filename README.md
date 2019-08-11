@@ -29,7 +29,7 @@ Role Variables
 --------------
 
 These are quite a lot and will follow soon.
-------------
+
 
 Example Playbook
 ----------------
