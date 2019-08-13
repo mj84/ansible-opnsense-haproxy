@@ -7,12 +7,12 @@ The configuration occurs via the OPNsene API and as of now the following HAProxy
 
 * ACLs (Conditions)
 * Actions (Rules)
+* Errorfiles (Error Messages)
 * Users
 
 The goal of this role is to be feature-complete, so the following datatypes are currently being implemented:
 
 * Backend Pools
-* Errorfiles
 * Frontends (Public Services)
 * Groups
 * Healthchecks
