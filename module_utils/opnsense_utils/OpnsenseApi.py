@@ -156,10 +156,26 @@ class Haproxy:
         backends = self.getRequest(url)
         return backends['rows']
 
+    def addErrorfile(self, errorfilename, properties):
+        properties['name'] = errorfilename
+        response = self.createObject('errorfile', properties)
+        return response
+
+    def delErrorfile(self, errorfilename):
+        uuid = self.getUuidByName('errorfile', errorfilename)
+        response = self.deleteObject('errorfile', uuid)
+        return response
+
     def listErrorfiles(self):
         url = self.url + '/api/haproxy/settings/searcherrorfiles'
         errorfiles = self.getRequest(url)['rows']
-        return errorfiles['rows']
+        return errorfiles
+
+    def setErrorfile(self, errorfilename, properties):
+        uuid = self.getUuidByName('errorfile', errorfilename)
+        obj = {'errorfile': properties}
+        response = self.updateObject('errorfile', uuid, obj)
+        return response
 
     def listFrontends(self):
         url = self.url + '/api/haproxy/settings/searchfrontends'

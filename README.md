@@ -1,7 +1,7 @@
 Role Name
 =========
 
-This role is meant for managing HAProxy installations running as a plugin on OPNsense firewalls (see https://opnsense.org)
+This Ansible role is meant for managing HAProxy installations running as a plugin on OPNsense firewalls (see https://opnsense.org)
 
 The configuration occurs via the OPNsene API and as of now the following HAProxy datatypes can be managed:
 
