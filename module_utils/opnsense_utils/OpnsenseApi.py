@@ -25,7 +25,7 @@ class Haproxy:
         #return 'postRequest posting data: %s' % json.dumps(data), 'to url: ', url, 'postRequest received json: ', r.json()
         r_json = r.json()
         # maybe need some better status checking here
-        if 'failed' in r_json:
+        if 'result' in r_json and 'failed' in r_json['result']:
             raise ValueError('API threw an error: %s' % r_json)
         return r_json
 
@@ -56,13 +56,60 @@ class Haproxy:
                 return obj['uuid']
         raise KeyError('Found no object of type %s with name %s!' %(objecttype, name))
 
+    def getSelected(self, valuesdict, retval='key'):
+        for key, value in valuesdict.iteritems():
+            if value['selected'] == 1:
+                if retval == 'key':
+                    return key
+                else:
+                    if retval not in value:
+                        raise KeyError('%s is no key in dict %s' %(retval, value))
+                    return value[retval]
+        return ''
+
+    def getSelectedList(self, valuesdict):
+        selected_items = []
+        for key, value in valuesdict.iteritems():
+            if value['selected'] == 1:
+                selected_items.append(value['value'])
+        return selected_items
+
+    def findValueInDict(self, valuesdict, searchvalue, prop='value', retval='key'):
+        for key, value in valuesdict.iteritems():
+            if prop in value and value[prop] == searchvalue:
+                if retval == 'key':
+                    return key
+                else:
+                    if retval not in value:
+                        raise KeyError('%s is no key in dict %s' %(retval, value))
+                    return value[retval]
+        return ''        
+
+    def compareLists(self, list_one, list_two):
+        lists_match = True
+        # Check if list_two contains elements not in list_one
+        for item in list_two:
+            if item not in list_one:
+                lists_match = False
+        # Check if list_one contains elements not in list_two
+        for item in list_one:
+            if item not in list_two:
+                lists_match = False
+        return lists_match
+
     def getCommaSeparatedUuidsFromListOfNames(self, objecttype, names):
-        commaseparated = ''
+        uuid_list = []
         for name in names:
-            uuid = self.getUuidByName('acl', name)
-            commaseparated += uuid
-            if name != names[-1]: commaseparated += ','
-        return commaseparated
+            uuid = self.getUuidByName(objecttype, name)
+            uuid_list.append(uuid)
+        return ','.join(uuid_list)
+
+    def getCommaSeparatedSelectedKeysFromDict(self, objs):
+        selected_items = []
+        for key, value in objs.iteritems():
+            if 'selected' in value and value['selected'] == '1':
+                selected_items.append(key)
+        return ','.join(selected_items)
 
     def applyConfig(self):
         configtesturl = self.url + '/api/haproxy/service/configtest'
@@ -192,10 +239,26 @@ class Haproxy:
         luas = self.getRequest(url)
         return luas['rows']
 
+    def addServer(self, servername, properties):
+        properties['name'] = servername
+        response = self.createObject('server', properties)
+        return response
+
+    def delServer(self, servername):
+        uuid = self.getUuidByName('server', servername)
+        response = self.deleteObject('server', uuid)
+        return response
+
     def listServers(self):
         url = self.url + '/api/haproxy/settings/searchservers'
         servers = self.getRequest(url)
         return servers['rows']
+
+    def setServer(self, servername, properties):
+        uuid = self.getUuidByName('server', servername)
+        obj = {'server': properties}
+        response = self.updateObject('server', uuid, obj)
+        return response
 
     def addUser(self, username, properties):
         properties['name'] = username
