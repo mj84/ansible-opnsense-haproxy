@@ -24,10 +24,10 @@ def main():
     # Instantiate module
     module = AnsibleModule(
         argument_spec=dict(
-            url=dict(type='str', required=True),
+            api_url=dict(type='str', required=True),
             api_key=dict(type='str', required=True, no_log=True),
             api_secret=dict(type='str', required=True, no_log=True),
-            ssl_verify=dict(type='bool', default=False),
+            api_ssl_verify=dict(type='bool', default=False),
             server_enabled=dict(type='bool', default=True),
             server_name=dict(type='str', required=True),
             server_address=dict(type='str', default=True),
@@ -72,13 +72,13 @@ def main():
     server_state = module.params['server_state']
     server_description = module.params['server_description']
     # Instantiate API connection
-    url = module.params['url']
+    api_url = module.params['api_url']
     auth = (module.params['api_key'], module.params['api_secret'])
-    ssl_verify = module.params['ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(url, auth, ssl_verify)
+    api_ssl_verify = module.params['api_ssl_verify']
+    apiconnection = OpnsenseApi.Haproxy(api_url, auth, api_ssl_verify)
 
     # Fetch list of servers
-    servers = apiconnection.listServers()
+    servers = apiconnection.listObjects('server')
 
     # Build dict with desired state
     desired_properties = {
@@ -176,7 +176,7 @@ def main():
                 result = {'changed': False, 'msg': ['Server already present: %s' %server_name, additional_msg]}
             else:
                 if not module.check_mode:
-                    additional_msg.append(apiconnection.setServer(server_name, changed_properties))
+                    additional_msg.append(apiconnection.updateObject('server', server_name, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
                 result = {'changed': True, 'msg': ['Server %s must be changed.' %server_name, additional_msg]}
         else:
@@ -185,13 +185,13 @@ def main():
                 desired_properties['sslCA'] = ''
                 desired_properties['sslCRL'] = ''
                 desired_properties['sslClientCertificate'] = ''
-                additional_msg.append(apiconnection.addServer(server_name, desired_properties))
+                additional_msg.append(apiconnection.createObject('server', server_name, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Server %s must be created.' %server_name, additional_msg]}
     else:
         if server_exists:
             if not module.check_mode:
-                additional_msg.append(apiconnection.delServer(server_name))
+                additional_msg.append(apiconnection.deleteObject('server', server_name))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Server %s must be deleted.' %server_name, additional_msg]}
         else:

@@ -51,7 +51,7 @@ def main():
     apiconnection = OpnsenseApi.Haproxy(api_url, api_auth, api_ssl_verify)
 
     # Fetch list of luas
-    luas = apiconnection.listLuas()
+    luas = apiconnection.listObjects('lua')
 
     # Build dict with desired state
     desired_properties = {'enabled': lua_enabled, 'description': lua_description, 'content': lua_content}
@@ -81,18 +81,18 @@ def main():
                 result = {'changed': False, 'msg': ['Lua already present: %s' %lua_name]}
             else:
                 if not module.check_mode:
-                    additional_msg.append(apiconnection.setLua(lua_name, changed_properties))
+                    additional_msg.append(apiconnection.updateObject('lua', lua_name, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
                 result = {'changed': True, 'msg': ['Lua %s must be changed.' %lua_name, additional_msg]}
         else:
             if not module.check_mode:
-                additional_msg.append(apiconnection.addLua(lua_name, desired_properties))
+                additional_msg.append(apiconnection.createObject('lua', lua_name, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Lua %s must be created.' %lua_name, additional_msg]}
     else:
         if lua_exists:
             if not module.check_mode:
-                additional_msg.append(apiconnection.delLua(lua_name))
+                additional_msg.append(apiconnection.deleteObject('lua', lua_name))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Lua %s must be deleted.' %lua_name, additional_msg]}
         else:

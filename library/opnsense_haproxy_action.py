@@ -24,10 +24,10 @@ def main():
     # Instantiate module
     module = AnsibleModule(
         argument_spec=dict(
-            url=dict(type='str', required=True),
+            api_url=dict(type='str', required=True),
             api_key=dict(type='str', required=True, no_log=True),
             api_secret=dict(type='str', required=True, no_log=True),
-            ssl_verify=dict(type='bool', default=False),
+            api_ssl_verify=dict(type='bool', default=False),
             actionname=dict(type='str', required=True),
             description=dict(type='str', default=''),
             test_type=dict(type='str', choices=['if', 'unless'], default='if'),
@@ -89,13 +89,13 @@ def main():
     description = module.params['description']
     state = module.params['state']
     # Instantiate API connection
-    url = module.params['url']
+    api_url = module.params['api_url']
     auth = (module.params['api_key'], module.params['api_secret'])
-    ssl_verify = module.params['ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(url, auth, ssl_verify)
+    api_ssl_verify = module.params['api_ssl_verify']
+    apiconnection = OpnsenseApi.Haproxy(api_url, auth, api_ssl_verify)
 
     # Fetch list of acls
-    actions = apiconnection.listActions()
+    actions = apiconnection.listObjects('action')
 
     # Prepare dict with properties needing change
     changed_properties = {}
@@ -220,7 +220,7 @@ def main():
                 result = {'changed': False, 'msg': ['Action already present: %s' %actionname, additional_msg]}
             else:
                 if not module.check_mode:
-                    additional_msg.append(apiconnection.setAction(actionname, changed_properties))
+                    additional_msg.append(apiconnection.updateObject('action', actionname, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
                 result = {'changed': True, 'msg': ['Action %s must be changed.' %actionname, additional_msg]}
         else:
@@ -255,13 +255,13 @@ def main():
                     desired_properties[action_type_key + '_reason'] = value_reason
                 else:
                     desired_properties[action_type_key] = action_value
-                additional_msg.append(apiconnection.addAction(actionname, desired_properties))
+                additional_msg.append(apiconnection.createObject('action', actionname, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Action %s must be created.' %actionname, additional_msg]}
     else:
         if action_exists:
             if not module.check_mode:
-                additional_msg.append(apiconnection.delAction(actionname))
+                additional_msg.append(apiconnection.deleteObject('action', actionname))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Action %s must be deleted.' %actionname, additional_msg]}
         else:

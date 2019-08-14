@@ -24,10 +24,10 @@ def main():
     # Instantiate module
     module = AnsibleModule(
         argument_spec=dict(
-            url=dict(type='str', required=True),
+            api_url=dict(type='str', required=True),
             api_key=dict(type='str', required=True, no_log=True),
             api_secret=dict(type='str', required=True, no_log=True),
-            ssl_verify=dict(type='bool', default=False),
+            api_ssl_verify=dict(type='bool', default=False),
             aclname=dict(type='str', required=True),
             description=dict(type='str', default=''),
             negate=dict(type='bool', default=False),
@@ -90,13 +90,13 @@ def main():
     description = module.params['description']
     state = module.params['state']
     # Instantiate API connection
-    url = module.params['url']
+    api_url = module.params['api_url']
     auth = (module.params['api_key'], module.params['api_secret'])
-    ssl_verify = module.params['ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(url, auth, ssl_verify)
+    api_ssl_verify = module.params['api_ssl_verify']
+    apiconnection = OpnsenseApi.Haproxy(api_url, auth, api_ssl_verify)
 
     # Fetch list of acls
-    acls = apiconnection.listAcls()
+    acls = apiconnection.listObjects('acl')
 
     # Build dict with desired state
     desired_properties = {'description': description, 'negate': negate, 'expression': condition_type, condition_type: condition_value}
@@ -136,18 +136,18 @@ def main():
                 result = {'changed': False, 'msg': ['Acl already present: %s' %aclname]}
             else:
                 if not module.check_mode:
-                    additional_msg.append(apiconnection.setAcl(aclname, changed_properties))
+                    additional_msg.append(apiconnection.updateObject('acl', aclname, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
                 result = {'changed': True, 'msg': ['Acl %s must be changed.' %aclname, additional_msg]}
         else:
             if not module.check_mode:
-                additional_msg.append(apiconnection.addAcl(aclname, desired_properties))
+                additional_msg.append(apiconnection.createObject('acl', aclname, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Acl %s must be created.' %aclname, additional_msg]}
     else:
         if acl_exists:
             if not module.check_mode:
-                additional_msg.append(apiconnection.delAcl(aclname))
+                additional_msg.append(apiconnection.deleteObject('acl', aclname))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Acl %s must be deleted.' %aclname, additional_msg]}
         else:

@@ -22,7 +22,6 @@ class Haproxy:
 
     def postRequest(self, url, data):
         r = requests.post(url, auth=self.auth, verify=self.ssl_verify, json=data)
-        #return 'postRequest posting data: %s' % json.dumps(data), 'to url: ', url, 'postRequest received json: ', r.json()
         r_json = r.json()
         # maybe need some better status checking here
         if 'result' in r_json and 'failed' in r_json['result']:
@@ -33,24 +32,7 @@ class Haproxy:
         if objecttype not in self.objecttypes:
             raise KeyError('Objecttype %s not supported!' % objecttype)
         objects = []
-        if objecttype == 'acl':
-            objects = self.listAcls()
-        elif objecttype == 'action':
-            objects = self.listActions()
-        elif objecttype == 'backend':
-            objects = self.listBackends()
-        elif objecttype == 'errorfile':
-            objects = self.listErrorfiles()
-        elif objecttype == 'frontend':
-            objects = self.listFrontends()
-        elif objecttype == 'healthcheck':
-            objects = self.listHealthchecks()
-        elif objecttype == 'lua':
-            objects = self.listLuas()
-        elif objecttype == 'server':
-            objects = self.listServers()
-        elif objecttype == 'user':
-            objects = self.listUsers()
+        objects = self.listObjects(objecttype)
         for obj in objects:
             if obj['name'] == name:
                 return obj['uuid']
@@ -121,7 +103,8 @@ class Haproxy:
         else:
             raise ValueError('Configtest did not succeed!')
 
-    def createObject(self, objecttype, properties):
+    def createObject(self, objecttype, objectname, properties):
+        properties['name'] = objectname
         if objecttype not in self.objecttypes:
             raise KeyError('Objecttype %s not supported!' % objecttype)
         url = self.url + '/api/haproxy/settings/add' + objecttype
@@ -130,12 +113,20 @@ class Haproxy:
         #return 'createObject sending object data: %s' % obj, 'to url: %s' % url, 'createObject received response: ', response
         return response
 
-    def deleteObject(self, objecttype, uuid):
+    def deleteObject(self, objecttype, objectname):
         if objecttype not in self.objecttypes:
             raise KeyError('Objecttype %s not supported!' % objecttype)
+        uuid = self.getUuidByName(objecttype, objectname)
         url = self.url + '/api/haproxy/settings/del' + objecttype + '/' + uuid
         response = self.postRequest(url, {})
         return response
+
+    def listObjects(self, objecttype):
+        if objecttype not in self.objecttypes:
+            raise KeyError('%s is no valid object type!' % objecttype)
+        url = self.url + '/api/haproxy/settings/search' + str(objecttype) + 's'
+        objs = self.getRequest(url)
+        return objs['rows']
 
     def getObjectByName(self, objecttype, name):
         uuid = self.getUuidByName(objecttype, name)
@@ -148,151 +139,10 @@ class Haproxy:
         obj = self.getRequest(url)[objecttype]
         return obj
 
-    def updateObject(self, objecttype, uuid, obj):
+    def updateObject(self, objecttype, objectname, obj):
         if objecttype not in self.objecttypes:
             raise KeyError('Objecttype %s not supported!' % objecttype)
+        uuid = self.getUuidByName(objecttype, objectname)
         url = self.url + '/api/haproxy/settings/set' + objecttype + '/' + uuid
         response = self.postRequest(url, obj)
-        #return 'updateObject sending object data: %s' % obj, 'to url: %s' % url, 'updateObject received response: ', response
         return  response
-
-    def addAcl(self, aclname, properties):
-        properties['name'] = aclname
-        response = self.createObject('acl', properties)
-        return response
-
-    def delAcl(self, aclname):
-        uuid = self.getUuidByName('acl', aclname)
-        response = self.deleteObject('acl', uuid)
-        return response
-
-    def listAcls(self):
-        url = self.url + '/api/haproxy/settings/searchacls'
-        acls = self.getRequest(url)
-        return acls['rows']
-
-    def setAcl(self, aclname, properties):
-        uuid = self.getUuidByName('acl', aclname)
-        obj = {'acl': properties}
-        response = self.updateObject('acl', uuid, obj)
-        return response
-
-    def addAction(self, actionname, properties):
-        properties['name'] = actionname
-        response = self.createObject('action', properties)
-        return response
-
-    def delAction(self, actionname):
-        uuid = self.getUuidByName('action', actionname)
-        response = self.deleteObject('action', uuid)
-        return response
-
-    def listActions(self):
-        url = self.url + '/api/haproxy/settings/searchactions'
-        actions = self.getRequest(url)
-        return actions['rows']
-
-    def setAction(self, actionname, properties):
-        uuid = self.getUuidByName('action', actionname)
-        obj = {'action': properties}
-        response = self.updateObject('action', uuid, obj)
-        return response
-
-    def listBackends(self):
-        url = self.url + '/api/haproxy/settings/searchbackends'
-        backends = self.getRequest(url)
-        return backends['rows']
-
-    def addErrorfile(self, errorfilename, properties):
-        properties['name'] = errorfilename
-        response = self.createObject('errorfile', properties)
-        return response
-
-    def delErrorfile(self, errorfilename):
-        uuid = self.getUuidByName('errorfile', errorfilename)
-        response = self.deleteObject('errorfile', uuid)
-        return response
-
-    def listErrorfiles(self):
-        url = self.url + '/api/haproxy/settings/searcherrorfiles'
-        errorfiles = self.getRequest(url)['rows']
-        return errorfiles
-
-    def setErrorfile(self, errorfilename, properties):
-        uuid = self.getUuidByName('errorfile', errorfilename)
-        obj = {'errorfile': properties}
-        response = self.updateObject('errorfile', uuid, obj)
-        return response
-
-    def listFrontends(self):
-        url = self.url + '/api/haproxy/settings/searchfrontends'
-        frontends = self.getRequest(url)
-        return frontends['rows']
-
-    def listHealthchecks(self):
-        url = self.url + '/api/haproxy/settings/searchhealthchecks'
-        healthchecks = self.getRequest(url)
-        return healthchecks['rows']
-
-    def addLua(self, luaname, properties):
-        properties['name'] = luaname
-        response = self.createObject('lua', properties)
-        return response
-
-    def delLua(self, luaname):
-        uuid = self.getUuidByName('lua', luaname)
-        response = self.deleteObject('lua', uuid)
-        return response
-
-    def listLuas(self):
-        url = self.url + '/api/haproxy/settings/searchluas'
-        luas = self.getRequest(url)
-        return luas['rows']
-
-    def setLua(self, luaname, properties):
-        uuid = self.getUuidByName('lua', luaname)
-        obj = {'lua': properties}
-        response = self.updateObject('lua', uuid, obj)
-        return response
-
-    def addServer(self, servername, properties):
-        properties['name'] = servername
-        response = self.createObject('server', properties)
-        return response
-
-    def delServer(self, servername):
-        uuid = self.getUuidByName('server', servername)
-        response = self.deleteObject('server', uuid)
-        return response
-
-    def listServers(self):
-        url = self.url + '/api/haproxy/settings/searchservers'
-        servers = self.getRequest(url)
-        return servers['rows']
-
-    def setServer(self, servername, properties):
-        uuid = self.getUuidByName('server', servername)
-        obj = {'server': properties}
-        response = self.updateObject('server', uuid, obj)
-        return response
-
-    def addUser(self, username, properties):
-        properties['name'] = username
-        response = self.createObject('user', properties)
-        return response
-
-    def delUser(self, username):
-        uuid = self.getUuidByName('user', username)
-        response = self.deleteObject('user', uuid)
-        return response
-
-    def listUsers(self):
-        url = self.url + '/api/haproxy/settings/searchusers'
-        users = self.getRequest(url)
-        return users['rows']
-
-    def setUser(self, username, properties):
-        uuid = self.getUuidByName('user', username)
-        obj = {'user': properties}
-        response = self.updateObject('user', uuid, obj)
-        return response
