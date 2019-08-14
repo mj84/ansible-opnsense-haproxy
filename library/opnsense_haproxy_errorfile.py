@@ -29,7 +29,7 @@ def main():
             api_secret=dict(type='str', required=True, no_log=True),
             ssl_verify=dict(type='bool', default=False),
             errorfilename=dict(type='str', required=True),
-            code=dict(type='str', default=True),
+            code=dict(type='str', required=True),
             description=dict(type='str', default=''),
             content=dict(type='str', default=''),
             state=dict(type='str', choices=['present', 'absent'], default='present'),
