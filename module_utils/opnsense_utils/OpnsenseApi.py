@@ -234,10 +234,26 @@ class Haproxy:
         healthchecks = self.getRequest(url)
         return healthchecks['rows']
 
+    def addLua(self, luaname, properties):
+        properties['name'] = luaname
+        response = self.createObject('lua', properties)
+        return response
+
+    def delLua(self, luaname):
+        uuid = self.getUuidByName('lua', luaname)
+        response = self.deleteObject('lua', uuid)
+        return response
+
     def listLuas(self):
         url = self.url + '/api/haproxy/settings/searchluas'
         luas = self.getRequest(url)
         return luas['rows']
+
+    def setLua(self, luaname, properties):
+        uuid = self.getUuidByName('lua', luaname)
+        obj = {'lua': properties}
+        response = self.updateObject('lua', uuid, obj)
+        return response
 
     def addServer(self, servername, properties):
         properties['name'] = servername
