@@ -11,7 +11,7 @@ class Haproxy:
         self.url = url
         self.auth = auth
         self.ssl_verify = ssl_verify
-        self.objecttypes = ['acl', 'action', 'backend', 'errorfile', 'frontend', 'healthcheck', 'lua', 'server', 'user']
+        self.objecttypes = ['acl', 'action', 'cpu', 'backend', 'errorfile', 'frontend', 'group', 'healthcheck', 'lua', 'mapfile', 'server', 'user']
         if not self.ssl_verify:
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -23,8 +23,9 @@ class Haproxy:
     def postRequest(self, url, data):
         r = requests.post(url, auth=self.auth, verify=self.ssl_verify, json=data)
         r_json = r.json()
+        #print(data)
         # maybe need some better status checking here
-        if 'result' in r_json and 'failed' in r_json['result']:
+        if ('result' in r_json and 'failed' in r_json['result']) or 'errorMessage' in r_json:
             raise ValueError('API threw an error: %s' % r_json)
         return r_json
 
@@ -144,5 +145,6 @@ class Haproxy:
             raise KeyError('Objecttype %s not supported!' % objecttype)
         uuid = self.getUuidByName(objecttype, objectname)
         url = self.url + '/api/haproxy/settings/set' + objecttype + '/' + uuid
-        response = self.postRequest(url, obj)
+        objdict = {objecttype: obj}
+        response = self.postRequest(url, objdict)
         return  response
