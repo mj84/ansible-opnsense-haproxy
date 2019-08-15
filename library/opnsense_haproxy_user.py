@@ -28,22 +28,22 @@ def main():
             api_key=dict(type='str', required=True, no_log=True),
             api_secret=dict(type='str', required=True, no_log=True),
             api_ssl_verify=dict(type='bool', default=False),
-            username=dict(type='str', required=True),
-            password=dict(type='str', default='', no_log=True),
-            enabled=dict(type='bool', default=True),
-            description=dict(type='str', default=''),
-            state=dict(type='str', choices=['present', 'absent'], default='present'),
+            user_name=dict(type='str', required=True),
+            user_password=dict(type='str', default='', no_log=True),
+            user_enabled=dict(type='bool', default=True),
+            user_description=dict(type='str', default=''),
+            user_state=dict(type='str', choices=['present', 'absent'], default='present'),
             haproxy_reload=dict(type='bool', default=False),
         ),
         supports_check_mode=True,
     )
     haproxy_reload = module.params['haproxy_reload']
     # Prepare properties of user
-    username = module.params['username']
-    password = module.params['password']
-    enabled = str(int(module.params['enabled']))
-    state = module.params['state']
-    description = module.params['description']
+    user_name = module.params['user_name']
+    user_password = module.params['user_password']
+    user_enabled = str(int(module.params['user_enabled']))
+    user_state = module.params['user_state']
+    user_description = module.params['user_description']
     # Instantiate API connection
     api_url = module.params['api_url']
     auth = (module.params['api_key'], module.params['api_secret'])
@@ -54,7 +54,7 @@ def main():
     users = apiconnection.listObjects('user')
 
     # Build dict with desired state
-    desired_properties = {'password': password, 'enabled': enabled, 'description': description}
+    desired_properties = {'password': user_password, 'enabled': user_enabled, 'description': user_description}
     # Prepare dict with properties needing change
     changed_properties = {}
     # Prepare result dict
@@ -65,40 +65,41 @@ def main():
     uuid = ''
     # Check if user object with specified name exists
     for user in users:
-        if user['name'] == username:
+        if user['name'] == user_name:
             user_exists = True
             uuid = user['uuid']
             additional_msg.append(uuid)
             break
     user_exists = (uuid != '')
 
-    if state == 'present':
+    if user_state == 'present':
         if user_exists:
-            user = apiconnection.getObjectByName('user', username)
-            for prop in ['password', 'enabled', 'description']:
+            user = apiconnection.getObjectByName('user', user_name)
+            for prop in desired_properties.keys():
                 if user[prop] != desired_properties[prop]:
                     needs_change = True
                     changed_properties[prop] = desired_properties[prop]
+                    additional_msg.append('Changing %s: %s => %s' %(prop, user[prop], desired_properties[prop]))
             if not needs_change:
-                result = {'changed': False, 'msg': ['User already present: %s' %username]}
+                result = {'changed': False, 'msg': ['User already present: %s' %user_name]}
             else:
                 if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('user', username, changed_properties))
+                    additional_msg.append(apiconnection.updateObject('user', user_name, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['User %s must be changed.' %username, additional_msg]}
+                result = {'changed': True, 'msg': ['User %s must be changed.' %user_name, additional_msg]}
         else:
             if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('user', username, desired_properties))
+                additional_msg.append(apiconnection.createObject('user', user_name, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['User %s must be created.' %username, additional_msg]}
+            result = {'changed': True, 'msg': ['User %s must be created.' %user_name, additional_msg]}
     else:
         if user_exists:
             if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('user', username))
+                additional_msg.append(apiconnection.deleteObject('user', user_name))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['User %s must be deleted.' %username, additional_msg]}
+            result = {'changed': True, 'msg': ['User %s must be deleted.' %user_name, additional_msg]}
         else:
-            result = {'changed': False, 'msg': ['User %s is not present.' %username]}
+            result = {'changed': False, 'msg': ['User %s is not present.' %user_name]}
 
     module.exit_json(**result)
 

@@ -28,22 +28,22 @@ def main():
             api_key=dict(type='str', required=True, no_log=True),
             api_secret=dict(type='str', required=True, no_log=True),
             api_ssl_verify=dict(type='bool', default=False),
-            errorfilename=dict(type='str', required=True),
-            code=dict(type='str', required=True),
-            description=dict(type='str', default=''),
-            content=dict(type='str', default=''),
-            state=dict(type='str', choices=['present', 'absent'], default='present'),
+            errorfile_name=dict(type='str', required=True),
+            errorfile_code=dict(type='str', required=True),
+            errorfile_description=dict(type='str', default=''),
+            errorfile_content=dict(type='str', default=''),
+            errorfile_state=dict(type='str', choices=['present', 'absent'], default='present'),
             haproxy_reload=dict(type='bool', default=False),
         ),
         supports_check_mode=True,
     )
     haproxy_reload = module.params['haproxy_reload']
     # Prepare properties of errorfile
-    errorfilename = module.params['errorfilename']
-    code = module.params['code']
-    content = module.params['content']
-    state = module.params['state']
-    description = module.params['description']
+    errorfile_name = module.params['errorfile_name']
+    errorfile_code = module.params['errorfile_code']
+    errorfile_content = module.params['errorfile_content']
+    errorfile_state = module.params['errorfile_state']
+    errorfile_description = module.params['errorfile_description']
     # Instantiate API connection
     api_url = module.params['api_url']
     auth = (module.params['api_key'], module.params['api_secret'])
@@ -54,7 +54,7 @@ def main():
     errorfiles = apiconnection.listObjects('errorfile')
 
     # Build dict with desired state
-    desired_properties = {'code': code, 'description': description, 'content': content}
+    desired_properties = {'code': errorfile_code, 'description': errorfile_description, 'content': errorfile_content}
     # Prepare dict with properties needing change
     changed_properties = {}
     # Prepare result dict
@@ -65,40 +65,47 @@ def main():
     uuid = ''
     # Check if errorfile object with specified name exists
     for errorfile in errorfiles:
-        if errorfile['name'] == errorfilename:
+        if errorfile['name'] == errorfile_name:
             errorfile_exists = True
             uuid = errorfile['uuid']
             additional_msg.append(uuid)
             break
     errorfile_exists = (uuid != '')
 
-    if state == 'present':
+    if errorfile_state == 'present':
         if errorfile_exists:
-            errorfile = apiconnection.getObjectByName('errorfile', errorfilename)
-            for prop in ['code', 'content', 'description']:
-                if errorfile[prop] != desired_properties[prop]:
-                    needs_change = True
-                    changed_properties[prop] = desired_properties[prop]
+            errorfile = apiconnection.getObjectByName('errorfile', errorfile_name)
+            for prop in desired_properties.keys():
+                # Special case for code
+                if prop == 'code':
+                    current_code = apiconnection.getSelected(errorfile[prop])
+                    if current_code != desired_properties[prop]:
+                        changed_properties[prop] = desired_properties[prop]
+                else:
+                    if errorfile[prop] != desired_properties[prop]:
+                        needs_change = True
+                        changed_properties[prop] = desired_properties[prop]
+                        additional_msg.append('Changing %s: %s => %s' %(prop, errorfile[prop], desired_properties[prop]))
             if not needs_change:
-                result = {'changed': False, 'msg': ['Errorfile already present: %s' %errorfilename]}
+                result = {'changed': False, 'msg': ['Errorfile already present: %s' %errorfile_name]}
             else:
                 if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('errorfile', errorfilename, changed_properties))
+                    additional_msg.append(apiconnection.updateObject('errorfile', errorfile_name, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Errorfile %s must be changed.' %errorfilename, additional_msg]}
+                result = {'changed': True, 'msg': ['Errorfile %s must be changed.' %errorfile_name, additional_msg]}
         else:
             if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('errorfile', errorfilename, desired_properties))
+                additional_msg.append(apiconnection.createObject('errorfile', errorfile_name, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Errorfile %s must be created.' %errorfilename, additional_msg]}
+            result = {'changed': True, 'msg': ['Errorfile %s must be created.' %errorfile_name, additional_msg]}
     else:
         if errorfile_exists:
             if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('errorfile', errorfilename))
+                additional_msg.append(apiconnection.deleteObject('errorfile', errorfile_name))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Errorfile %s must be deleted.' %errorfilename, additional_msg]}
+            result = {'changed': True, 'msg': ['Errorfile %s must be deleted.' %errorfile_name, additional_msg]}
         else:
-            result = {'changed': False, 'msg': ['Errorfile %s is not present.' %errorfilename]}
+            result = {'changed': False, 'msg': ['Errorfile %s is not present.' %errorfile_name]}
 
     module.exit_json(**result)
 

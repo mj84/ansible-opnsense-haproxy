@@ -28,10 +28,10 @@ def main():
             api_key=dict(type='str', required=True, no_log=True),
             api_secret=dict(type='str', required=True, no_log=True),
             api_ssl_verify=dict(type='bool', default=False),
-            aclname=dict(type='str', required=True),
-            description=dict(type='str', default=''),
-            negate=dict(type='bool', default=False),
-            condition_type=dict(type='str', choices=[
+            acl_name=dict(type='str', required=True),
+            acl_description=dict(type='str', default=''),
+            acl_negate=dict(type='bool', default=False),
+            acl_condition_type=dict(type='str', choices=[
                 'http_auth',
                 'hdr_beg',
                 'hdr_end',
@@ -75,20 +75,20 @@ def main():
                 'ssl_sni_reg',
                 'custom_acl'
             ], required=True),
-            condition_value=dict(type='str', required=True),
-            state=dict(type='str', choices=['present', 'absent'], default='present'),
+            acl_condition_value=dict(type='str', required=True),
+            acl_state=dict(type='str', choices=['present', 'absent'], default='present'),
             haproxy_reload=dict(type='bool', default=False)
         ),
         supports_check_mode=True,
     )
     haproxy_reload = module.params['haproxy_reload']
     # Prepare properties of acl
-    aclname = module.params['aclname']
-    negate = str(int(module.params['negate']))
-    condition_type = module.params['condition_type']
-    condition_value = module.params['condition_value']
-    description = module.params['description']
-    state = module.params['state']
+    acl_name = module.params['acl_name']
+    acl_negate = str(int(module.params['acl_negate']))
+    acl_condition_type = module.params['acl_condition_type']
+    acl_condition_value = module.params['acl_condition_value']
+    acl_description = module.params['acl_description']
+    acl_state = module.params['acl_state']
     # Instantiate API connection
     api_url = module.params['api_url']
     auth = (module.params['api_key'], module.params['api_secret'])
@@ -99,7 +99,7 @@ def main():
     acls = apiconnection.listObjects('acl')
 
     # Build dict with desired state
-    desired_properties = {'description': description, 'negate': negate, 'expression': condition_type, condition_type: condition_value}
+    desired_properties = {'description': acl_description, 'negate': acl_negate, 'expression': acl_condition_type, acl_condition_type: acl_condition_value}
     # Prepare dict with properties needing change
     changed_properties = {}
     # Prepare result dict
@@ -110,48 +110,49 @@ def main():
     uuid = ''
     # Check if acl object with specified name exists
     for acl in acls:
-        if acl['name'] == aclname:
+        if acl['name'] == acl_name:
             acl_exists = True
             uuid = acl['uuid']
             additional_msg.append(uuid)
             break
     acl_exists = (uuid != '')
 
-    if state == 'present':
+    if acl_state == 'present':
         if acl_exists:
-            acl = apiconnection.getObjectByName('acl', aclname)
+            acl = apiconnection.getObjectByName('acl', acl_name)
             # Check if properties differ
-            for prop in ['description', 'negate', condition_type]:
+            for prop in ['description', 'negate', acl_condition_type]:
                 if acl[prop] != desired_properties[prop]:
                     needs_change = True
                     changed_properties[prop] = desired_properties[prop]
+                    additional_msg.append('Changing %s: %s => %s' %(prop, acl[prop], desired_properties[prop]))
             # Entries in expression dict must be checked seperately if selected == 1:
             for key, value in acl['expression'].iteritems():
-                if value['selected'] == '1' and key != condition_type:
-                # Currently selected condition_type does not match, set both _type and _value
+                if value['selected'] == '1' and key != acl_condition_type:
+                # Currently selected acl_condition_type does not match, set both _type and _value
                     needs_change = True
-                    changed_properties['expression'] = condition_type
-                    changed_properties[condition_type] = condition_value
+                    changed_properties['expression'] = acl_condition_type
+                    changed_properties[acl_condition_type] = acl_condition_value
             if not needs_change:
-                result = {'changed': False, 'msg': ['Acl already present: %s' %aclname]}
+                result = {'changed': False, 'msg': ['Acl already present: %s' %acl_name]}
             else:
                 if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('acl', aclname, changed_properties))
+                    additional_msg.append(apiconnection.updateObject('acl', acl_name, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Acl %s must be changed.' %aclname, additional_msg]}
+                result = {'changed': True, 'msg': ['Acl %s must be changed.' %acl_name, additional_msg]}
         else:
             if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('acl', aclname, desired_properties))
+                additional_msg.append(apiconnection.createObject('acl', acl_name, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Acl %s must be created.' %aclname, additional_msg]}
+            result = {'changed': True, 'msg': ['Acl %s must be created.' %acl_name, additional_msg]}
     else:
         if acl_exists:
             if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('acl', aclname))
+                additional_msg.append(apiconnection.deleteObject('acl', acl_name))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Acl %s must be deleted.' %aclname, additional_msg]}
+            result = {'changed': True, 'msg': ['Acl %s must be deleted.' %acl_name, additional_msg]}
         else:
-            result = {'changed': False, 'msg': ['Acl %s is not present.' %aclname]}
+            result = {'changed': False, 'msg': ['Acl %s is not present.' %acl_name]}
 
     module.exit_json(**result)
 

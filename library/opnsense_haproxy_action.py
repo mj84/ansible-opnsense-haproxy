@@ -28,11 +28,11 @@ def main():
             api_key=dict(type='str', required=True, no_log=True),
             api_secret=dict(type='str', required=True, no_log=True),
             api_ssl_verify=dict(type='bool', default=False),
-            actionname=dict(type='str', required=True),
-            description=dict(type='str', default=''),
-            test_type=dict(type='str', choices=['if', 'unless'], default='if'),
-            linked_acls=dict(type='list', default=[]),
-            operator=dict(type='str', choices=['and', 'or'], default='and'),
+            action_name=dict(type='str', required=True),
+            action_description=dict(type='str', default=''),
+            action_test_type=dict(type='str', choices=['if', 'unless'], default='if'),
+            action_linked_acls=dict(type='list', default=[]),
+            action_operator=dict(type='str', choices=['and', 'or'], default='and'),
             action_type=dict(type='str', choices=[
                 'use_backend',
                 'use_server',
@@ -73,21 +73,21 @@ def main():
                 'custom'
             ], required=True),
             action_value=dict(type='str', required=True),
-            state=dict(type='str', choices=['present', 'absent'], default='present'),
+            action_state=dict(type='str', choices=['present', 'absent'], default='present'),
             haproxy_reload=dict(type='bool', default=False)
         ),
         supports_check_mode=True,
     )
     haproxy_reload = module.params['haproxy_reload']
     # Prepare properties of action
-    actionname = module.params['actionname']
-    test_type = module.params['test_type']
+    action_name = module.params['action_name']
+    action_test_type = module.params['action_test_type']
     action_type = module.params['action_type']
     action_value = module.params['action_value']
-    linked_acls = module.params['linked_acls']
-    operator = module.params['operator']
-    description = module.params['description']
-    state = module.params['state']
+    action_linked_acls = module.params['action_linked_acls']
+    action_operator = module.params['action_operator']
+    action_description = module.params['action_description']
+    action_state = module.params['action_state']
     # Instantiate API connection
     api_url = module.params['api_url']
     auth = (module.params['api_key'], module.params['api_secret'])
@@ -106,13 +106,13 @@ def main():
     # Replace all dashes in action_type since their keys only use underscores:
     action_type_key = action_type.replace('-', '_')
     # Build dict with desired state
-    desired_properties = {'description': description, 'testType': test_type, 'operator': operator, 'type': action_type, action_type_key: action_value, 'linkedAcls': ''}
+    desired_properties = {'description': action_description, 'testType': action_test_type, 'operator': action_operator, 'type': action_type, action_type_key: action_value, 'linkedAcls': ''}
     # Special case for linkedAcls which are a comma-separated list
-    desired_properties['linkedAcls'] = apiconnection.getCommaSeparatedUuidsFromListOfNames('acl', linked_acls)
-    #for acl in linked_acls:
+    desired_properties['linkedAcls'] = apiconnection.getCommaSeparatedUuidsFromListOfNames('acl', action_linked_acls)
+    #for acl in action_linked_acls:
     #    acl_uuid = apiconnection.getUuidByName('acl', acl)
     #    desired_properties['linkedAcls'] += acl_uuid
-    #    if acl != linked_acls[-1]: desired_properties['linkedAcls'] += ','
+    #    if acl != action_linked_acls[-1]: desired_properties['linkedAcls'] += ','
     # Special case for several http actions which use 2 fields:
     if 'http' in action_type and 'header' in action_type:
         # del only needs the name of HTTP header to delete
@@ -147,21 +147,22 @@ def main():
     uuid = ''
     # Check if action object with specified name exists
     for action in actions:
-        if action['name'] == actionname:
+        if action['name'] == action_name:
             uuid = action['uuid']
             additional_msg.append('Found action with uuid %s' % uuid)
             break
     action_exists = (uuid != '')
 
-    if state == 'present':
+    if action_state == 'present':
         if action_exists:
-            action = apiconnection.getObjectByName('action', actionname)
+            action = apiconnection.getObjectByName('action', action_name)
             # Check if simple properties differ
             for prop in ['description']:
                 if action[prop] != desired_properties[prop]:
                     needs_change = True
                     additional_msg.append('simple prop')
                     changed_properties[prop] = desired_properties[prop]
+                    additional_msg.append('Changing %s: %s => %s' %(prop, action[prop], desired_properties[prop]))
             # Check if action_type_key is already present, if not, replace the whole dict
             if action_type_key not in action:
                 # Special cases will be handled a bit further below
@@ -202,27 +203,27 @@ def main():
             # Check if currently an acl is linked which should not be linked:
             for key, value in action['linkedAcls'].iteritems():
                 if value['selected'] == 1:
-                    # Get name of linkedAcl and compare with linked_acls list
+                    # Get name of linkedAcl and compare with action_linked_acls list
                     acl = apiconnection.getObjectByUuid('acl', key)
                     additional_msg.append('Found a linked acl with name: %s' % acl['name'])
-                    if acl['name'] not in linked_acls:
-                    # Current element is not in linked_acls, rebuild linkedAcls completely
+                    if acl['name'] not in action_linked_acls:
+                    # Current element is not in action_linked_acls, rebuild linkedAcls completely
                         needs_change = True
                         additional_msg.append('linkedAcls containing unwanted element')
                         changed_properties['linkedAcls'] = desired_properties['linkedAcls']
             # Reverse acl check, make sure every entry in linked_acl is included in action object
-            for acl in linked_acls:
+            for acl in action_linked_acls:
                 acl_uuid = apiconnection.getUuidByName('acl', acl)
                 if action['linkedAcls'][acl_uuid]['selected'] == 0:
                     needs_change = True
                     changed_properties['linkedAcls'] = desired_properties['linkedAcls']
             if not needs_change:
-                result = {'changed': False, 'msg': ['Action already present: %s' %actionname, additional_msg]}
+                result = {'changed': False, 'msg': ['Action already present: %s' %action_name, additional_msg]}
             else:
                 if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('action', actionname, changed_properties))
+                    additional_msg.append(apiconnection.updateObject('action', action_name, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Action %s must be changed.' %actionname, additional_msg]}
+                result = {'changed': True, 'msg': ['Action %s must be changed.' %action_name, additional_msg]}
         else:
             if not module.check_mode:
                 desired_properties['type'] = action_type
@@ -255,17 +256,17 @@ def main():
                     desired_properties[action_type_key + '_reason'] = value_reason
                 else:
                     desired_properties[action_type_key] = action_value
-                additional_msg.append(apiconnection.createObject('action', actionname, desired_properties))
+                additional_msg.append(apiconnection.createObject('action', action_name, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Action %s must be created.' %actionname, additional_msg]}
+            result = {'changed': True, 'msg': ['Action %s must be created.' %action_name, additional_msg]}
     else:
         if action_exists:
             if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('action', actionname))
+                additional_msg.append(apiconnection.deleteObject('action', action_name))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Action %s must be deleted.' %actionname, additional_msg]}
+            result = {'changed': True, 'msg': ['Action %s must be deleted.' %action_name, additional_msg]}
         else:
-            result = {'changed': False, 'msg': ['Action %s is not present.' %actionname]}
+            result = {'changed': False, 'msg': ['Action %s is not present.' %action_name]}
 
     module.exit_json(**result)
 
