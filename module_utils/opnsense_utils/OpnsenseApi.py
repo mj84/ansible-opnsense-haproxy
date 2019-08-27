@@ -39,6 +39,16 @@ class Haproxy:
                 return obj['uuid']
         raise KeyError('Found no object of type %s with name %s!' %(objecttype, name))
 
+    def getSslObjectKeys(self, ssl_objects, names):
+        ssl_object_keys = []
+        for name in names:
+            ssl_object_key = self.findValueInDict(ssl_objects, name)
+            if ssl_object_key == '':
+                raise KeyError('No SSL object with name %s', name)
+            else:
+                ssl_object_keys.append(ssl_object_key)
+        return ssl_object_keys
+
     def getSelected(self, valuesdict, retval='key'):
         for key, value in valuesdict.iteritems():
             if value['selected'] == 1:
@@ -50,11 +60,19 @@ class Haproxy:
                     return value[retval]
         return ''
 
-    def getSelectedList(self, valuesdict):
+    def getSelectedList(self, valuesdict, retval='value'):
         selected_items = []
+        # Catch empty list, which is specified as an actual JSON list
+        if type(valuesdict) == list and valuesdict == []:
+            return []
         for key, value in valuesdict.iteritems():
             if value['selected'] == 1:
-                selected_items.append(value['value'])
+                if retval == 'key':
+                    selected_items.append(key)
+                else:
+                    if not retval in value:
+                        raise KeyError('%s is no key in dict %s' %(retval, value))
+                    selected_items.append(value[retval])
         return selected_items
 
     def findValueInDict(self, valuesdict, searchvalue, prop='value', retval='key'):
@@ -68,7 +86,9 @@ class Haproxy:
                     return value[retval]
         return ''        
 
-    def compareLists(self, list_one, list_two):
+    def compareLists(self, list_one, list_two, order_sensitive=False):
+        # This function compares if two lists contain the same elements.
+        # If necessary, the order can be checked as well.
         lists_match = True
         # Check if list_two contains elements not in list_one
         for item in list_two:
@@ -78,21 +98,25 @@ class Haproxy:
         for item in list_one:
             if item not in list_two:
                 lists_match = False
+        # If order is relevant, check if both lists are identical
+        if lists_match and order_sensitive:
+            if list_one != list_two:
+                lists_match = False
         return lists_match
 
-    def getCommaSeparatedUuidsFromListOfNames(self, objecttype, names):
+    def getUuidsFromNames(self, objecttype, names):
         uuid_list = []
         for name in names:
             uuid = self.getUuidByName(objecttype, name)
             uuid_list.append(uuid)
-        return ','.join(uuid_list)
+        return uuid_list
 
-    def getCommaSeparatedSelectedKeysFromDict(self, objs):
+    def getSelectedKeysFromDict(self, objs):
         selected_items = []
         for key, value in objs.iteritems():
             if 'selected' in value and value['selected'] == '1':
                 selected_items.append(key)
-        return ','.join(selected_items)
+        return selected_items
 
     def applyConfig(self):
         configtesturl = self.url + '/api/haproxy/service/configtest'
