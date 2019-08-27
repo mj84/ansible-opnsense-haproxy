@@ -40,7 +40,7 @@ def main():
             frontend_ssl_certificates=dict(type='list', default=[]),
             frontend_ssl_default_certificate=dict(type='str', default=''),
             frontend_ssl_custom_options=dict(type='str', default=''),
-            frontend_ssl_advanced_enabled=dict(type='bool', default='False'),
+            frontend_ssl_advanced_enabled=dict(type='bool', default=False),
             frontend_ssl_bind_options=dict(type='list',
                 elements='str',
                 options=dict(
@@ -407,8 +407,6 @@ def main():
                         additional_msg.append('Changing %s: %s => %s' %(prop, current_linked_cpu_affinity_rules, desired_properties[prop]))
                 elif prop == 'linkedActions':
                     current_linked_actions = apiconnection.getSelectedList(frontend[prop], retval='key')
-                    #additional_msg.append('Current: %s' % current_linked_actions)
-                    #additional_msg.append('Desired: %s' % frontend_linked_actions_uuids)
                     if not apiconnection.compareLists(current_linked_actions, frontend_linked_actions_uuids):
                         needs_change = True
                         changed_properties[prop] = desired_properties[prop]
