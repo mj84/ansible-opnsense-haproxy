@@ -106,13 +106,14 @@ def main():
     # Replace all dashes in action_type since their keys only use underscores:
     action_type_key = action_type.replace('-', '_')
     # Build dict with desired state
-    desired_properties = {'description': action_description, 'testType': action_test_type, 'operator': action_operator, 'type': action_type, action_type_key: action_value, 'linkedAcls': ''}
-    # Special case for linkedAcls which are a comma-separated list
-    desired_properties['linkedAcls'] = apiconnection.getCommaSeparatedUuidsFromListOfNames('acl', action_linked_acls)
-    #for acl in action_linked_acls:
-    #    acl_uuid = apiconnection.getUuidByName('acl', acl)
-    #    desired_properties['linkedAcls'] += acl_uuid
-    #    if acl != action_linked_acls[-1]: desired_properties['linkedAcls'] += ','
+    desired_properties = {
+        'description': action_description,
+        'testType': action_test_type,
+        'operator': action_operator,
+        'type': action_type,
+        action_type_key: action_value,
+        'linkedAcls': ','.join(apiconnection.getUuidsFromNames('acl', action_linked_acls))
+    }
     # Special case for several http actions which use 2 fields:
     if 'http' in action_type and 'header' in action_type:
         # del only needs the name of HTTP header to delete

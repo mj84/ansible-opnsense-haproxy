@@ -57,7 +57,11 @@ def main():
     group_members_keys = []
     for member in group_members:
         member_id = apiconnection.getUuidByName('user', member)
-    desired_properties = {'enabled': group_enabled, 'description': group_description, 'members': apiconnection.getCommaSeparatedUuidsFromListOfNames('user', group_members)}
+    desired_properties = {
+        'enabled': group_enabled,
+        'description': group_description,
+        'members': ','.join(apiconnection.getUuidsFromNames('user', group_members))
+    }
     # Prepare dict with properties needing change
     changed_properties = {}
     # Prepare result dict
