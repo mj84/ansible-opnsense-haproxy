@@ -55,10 +55,10 @@ While implementing support for frontend objects, I can get the SSL object id's b
 This functionality needs to be ported to other data types using SSL objects.
 
 
-Order of lists:
+Order of lists:  
 The included Ansible modules take the order of elements within a list into account (e.g. for linked actions or SSL certificates).
-However, the order of elements in a list, is not always being reflected through the OPNsense API (might be a bug).
-Therefore, only the actual elements in a list are being compared, not the order of elements.
+However, the order of elements in a list, is not always being reflected through the OPNsense API (might be a bug).  
+Therefore, only the actual elements in a list are being compared, not the order of elements.  
 If the order of elements needs to be changed, I recommend doing a dummy change by adding or removing an element (and reversing that dummy change).
 
 Role Variables
