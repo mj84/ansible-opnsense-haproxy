@@ -30,7 +30,7 @@ def main():
             api_ssl_verify=dict(type='bool', default=False),
             server_enabled=dict(type='bool', default=True),
             server_name=dict(type='str', required=True),
-            server_address=dict(type='str', default=True),
+            server_address=dict(type='str', required=True),
             server_description=dict(type='str', default=''),
             server_port=dict(type='str', required=True),
             server_checkport=dict(type='str', default=''),
@@ -52,6 +52,7 @@ def main():
     )
     haproxy_reload = module.params['haproxy_reload']
     # Prepare properties of server
+    server_state = module.params['server_state']
     server_enabled = module.params['server_enabled']
     server_name = module.params['server_name']
     server_description = module.params['server_description']
@@ -69,8 +70,6 @@ def main():
     server_check_down_interval = module.params['server_check_down_interval']
     server_source = module.params['server_source']
     server_advanced = module.params['server_advanced']
-    server_state = module.params['server_state']
-    server_description = module.params['server_description']
     # Instantiate API connection
     api_url = module.params['api_url']
     auth = (module.params['api_key'], module.params['api_secret'])
