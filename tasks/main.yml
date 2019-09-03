@@ -147,7 +147,7 @@
     backend_state: '{{ item.value.state | default("present") }}'
     backend_enabled: '{{ item.value.enabled | default(True) }}'
     backend_name: '{{ item.key }}'
-    backend_description: '{{ item.value.description }}'
+    backend_description: '{{ item.value.description | default("") }}'
     backend_mode: '{{ item.value.mode | default("http") }}'
     backend_algorithm: '{{ item.value.algorithm | default("source") }}'
     backend_proxy_protocol: '{{ item.value.proxy_protocol | default("") }}'
