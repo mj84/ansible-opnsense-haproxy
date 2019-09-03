@@ -1,25 +1,24 @@
-Role Name
+opnsense_haproxy
 =========
 
 This Ansible role is meant for managing HAProxy installations running as a plugin on OPNsense firewalls (see https://opnsense.org)
 
-The configuration occurs via the OPNsene API and as of now the following HAProxy datatypes can be managed:
+The configuration occurs via the OPNsene API.
+The goal of this role is to be feature-complete, so the following HAProxy datatypes can be managed:
 
 * ACLs (Conditions)
 * Actions (Rules)
 * Backend Pools
+* CPUs (CPU Affinity Rules)
 * Errorfiles (Error Messages)
 * Frontends (Public Services)
 * Groups
+* Healthchecks
 * LUA services
 * Maps (Map Files)
 * Servers
 * Users
 
-The goal of this role is to be feature-complete, so the following datatypes are currently being implemented:
-
-* CPUs (CPU Affinity Rules)
-* Healthchecks
 
 Requirements
 ------------
@@ -38,28 +37,31 @@ The tasks in tasks/main.yml file should already take care of this.
 Limitations
 --------------
 
-As of now, the following object types cannot be queried directly through the OPNsense API:
+As of now, the following object types cannot be queried directly through the OPNsense API:  
 
 * SSL CAs
 * SSL CRLs
 * SSL Client Certificates
 
-Since these objects are also addressed through an internal id, these ids are unknown at creation time of an object which references these object types (such as a server object).
-As of now, when one of these parameters should be set, the task for managing e.g. a server needs to run twice:
+Since these objects are also addressed through an internal id, these ids are unknown at creation time of an object which references these object types (such as a server object).  
+As of now, when one of these parameters should be set, the task for managing e.g. a server needs to run twice:  
 
 1. Create the server object with every parameter but SSL CA, SSL CRL or SSL Client Certificate.
 2. Update the server object and reference these other objects.
 
 Update 2019-08-26:
-While implementing support for frontend objects, I can get the SSL object id's by retrieving an empty frontend object.
-This functionality needs to be ported to other data types using SSL objects.
+While implementing support for frontend objects, I can get the SSL object id's by retrieving an empty frontend object.  
+This functionality needs to be ported to other data types using SSL objects.  
+These are:  
+
+* Servers
 
 
 Order of lists:  
-The included Ansible modules take the order of elements within a list into account (e.g. for linked actions or SSL certificates).
+The included Ansible modules take the order of elements within a list into account (e.g. for linked actions or SSL certificates).  
 However, the order of elements in a list, is not always being reflected through the OPNsense API (might be a bug).  
 Therefore, only the actual elements in a list are being compared, not the order of elements.  
-If the order of elements needs to be changed, I recommend doing a dummy change by adding or removing an element (and reversing that dummy change).
+If the order of elements needs to be changed, I recommend doing a dummy change by adding or removing an element (and reversing that dummy change afterwards).  
 
 Role Variables
 --------------
