@@ -32,6 +32,8 @@ class Haproxy:
     def getUuidByName(self, objecttype, name):
         if objecttype not in self.objecttypes:
             raise KeyError('Objecttype %s not supported!' % objecttype)
+        if name == '':
+            return ''
         objects = []
         objects = self.listObjects(objecttype)
         for obj in objects:
