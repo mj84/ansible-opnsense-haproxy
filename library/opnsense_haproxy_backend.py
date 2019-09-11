@@ -308,7 +308,7 @@ def main():
                         additional_msg.append('Changing %s: %s => %s' %(prop, current_tuning_httpreuse, desired_properties[prop]))
                 elif prop == 'linkedActions':
                     current_linked_actions = apiconnection.getSelectedList(backend[prop], retval='key')
-                    if not apiconnection.compareLists(current_linked_actions, backend_linked_actions_uuids, order_sensitive=True):
+                    if not apiconnection.compareLists(current_linked_actions, backend_linked_actions_uuids):
                         needs_change = True
                         changed_properties[prop] = desired_properties[prop]
                         additional_msg.append('Changing %s: %s => %s' %(prop, current_linked_actions, desired_properties[prop]))
@@ -324,11 +324,14 @@ def main():
                         needs_change = True
                         changed_properties[prop] = desired_properties[prop]
                         additional_msg.append('Changing %s: %s => %s' %(prop, backend[prop], desired_properties[prop]))
-    
+
             if not needs_change:
                 result = {'changed': False, 'msg': ['Backend already present: %s' %backend_name, additional_msg]}
             else:
                 if not module.check_mode:
+                    # workaround for https://github.com/opnsense/plugins/issues/1494
+                    # any change must include the linkedActions to maintain the correct order
+                    changed_properties['linkedActions'] = desired_properties['linkedActions']
                     additional_msg.append(apiconnection.updateObject('backend', backend_name, changed_properties))
                     if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
                 result = {'changed': True, 'msg': ['Backend %s must be changed.' %backend_name, additional_msg]}

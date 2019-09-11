@@ -59,8 +59,10 @@ These are:
 
 Order of lists:  
 The included Ansible modules take the order of elements within a list into account (e.g. for linked actions or SSL certificates).  
-However, the order of elements in a list, is ~~not always~~never being reflected through the OPNsense API (I have filed a bug for this at https://github.com/opnsense/plugins/issues/1494).  
-This Ansible role tries to take care of the order of elements (where necessary), and due to the mentioned bug it will always try to update the order of linked rules.  
+However, the order of elements in a list is not being reflected through the OPNsense API.  
+So whenever you need to change the order of rules, I recommend changing another property as well, such as the description.    
+Also, there is a bug (https://github.com/opnsense/plugins/issues/1494) which breaks the order of rules when changing *other* properties than rules.  
+As a workaround these Ansible modules always pass the linked rules whenever *any* property changes.  
 
 Role Variables
 --------------
