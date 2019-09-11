@@ -407,7 +407,7 @@ def main():
                         additional_msg.append('Changing %s: %s => %s' %(prop, current_linked_cpu_affinity_rules, desired_properties[prop]))
                 elif prop == 'linkedActions':
                     current_linked_actions = apiconnection.getSelectedList(frontend[prop], retval='key')
-                    if not apiconnection.compareLists(current_linked_actions, frontend_linked_actions_uuids):
+                    if not apiconnection.compareLists(current_linked_actions, frontend_linked_actions_uuids, order_sensitive=True):
                         needs_change = True
                         changed_properties[prop] = desired_properties[prop]
                         additional_msg.append('Changing %s: %s => %s' %(prop, current_linked_actions, desired_properties[prop]))

@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 
 import requests
 import json
+from collections import OrderedDict
 
 class Haproxy:
     def __init__(self, url, auth, ssl_verify):
@@ -18,7 +19,9 @@ class Haproxy:
 
     def getRequest(self, url):
         r = requests.get(url, auth=self.auth, verify=self.ssl_verify)
-        return r.json()
+        # We need to parse the JSON response as an OrderedDict, so we can preserve the order of some properties
+        r_ordered = json.loads(r.content, object_pairs_hook=OrderedDict)
+        return r_ordered
 
     def postRequest(self, url, data):
         r = requests.post(url, auth=self.auth, verify=self.ssl_verify, json=data)
@@ -86,7 +89,7 @@ class Haproxy:
                     if retval not in value:
                         raise KeyError('%s is no key in dict %s' %(retval, value))
                     return value[retval]
-        return ''        
+        return ''
 
     def compareLists(self, list_one, list_two, order_sensitive=False):
         # This function compares if two lists contain the same elements.
@@ -152,18 +155,21 @@ class Haproxy:
         if objecttype not in self.objecttypes:
             raise KeyError('%s is no valid object type!' % objecttype)
         url = self.url + '/api/haproxy/settings/search' + str(objecttype) + 's'
-        objs = self.getRequest(url)
+        #objs = self.getRequest(url)
+        objs = dict(self.getRequest(url))
         return objs['rows']
 
     def getObjectByName(self, objecttype, name):
         uuid = self.getUuidByName(objecttype, name)
         url = self.url + '/api/haproxy/settings/get' + objecttype + '/' + uuid
-        obj = self.getRequest(url)[objecttype]
+        #obj = self.getRequest(url)[objecttype]
+        obj = dict(self.getRequest(url)[objecttype])
         return obj
 
     def getObjectByUuid(self, objecttype, uuid):
         url = self.url + '/api/haproxy/settings/get' + objecttype + '/' + uuid
-        obj = self.getRequest(url)[objecttype]
+        #obj = self.getRequest(url)[objecttype]
+        obj = dict(self.getRequest(url)[objecttype])
         return obj
 
     def updateObject(self, objecttype, objectname, obj):
