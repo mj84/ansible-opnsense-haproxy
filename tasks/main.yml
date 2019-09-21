@@ -1,16 +1,5 @@
 ---
 # tasks file for local.maj.opnsense.haproxy
-- name: Manage opnsense haproxy users
-  opnsense_haproxy_user:
-    api_url: '{{ opnsense_api_url }}'
-    api_key: '{{ opnsense_api_key }}'
-    api_secret: '{{ opnsense_api_secret }}'
-    user_state: '{{ item.value.state | default("present") }}'
-    user_name: '{{ item.key }}'
-    user_password: '{{ item.value.password }}'
-    user_description: '{{ item.value.description | default("") }}'
-    user_enabled: '{{ item.value.enabled | default(True) }}'
-  loop: '{{ opnsense_haproxy_users | default({}) | dict2items }}'
 - name: Manage opnsense haproxy acls
   opnsense_haproxy_acl:
     api_url: '{{ opnsense_api_url }}'
@@ -73,31 +62,6 @@
     acl_allowed_users: '{{ item.value.allowed_users | default([]) }}'
     acl_allowed_groups: '{{ item.value.allowed_groups | default([]) }}'
   loop: '{{ opnsense_haproxy_acls | dict2items }}'
-- name: Manage opnsense haproxy actions
-  opnsense_haproxy_action:
-    api_url: '{{ opnsense_api_url }}'
-    api_key: '{{ opnsense_api_key }}'
-    api_secret: '{{ opnsense_api_secret }}'
-    action_state: '{{ item.value.state | default("present") }}'
-    action_name: '{{ item.key }}'
-    action_description: '{{ item.value.description | default("") }}'
-    action_type: '{{ item.value.type }}'
-    action_linked_acls: '{{ item.value.linked_acls | default([]) }}'
-    action_test_type: '{{ item.value.test_type | default("if") }}'
-    action_operator: '{{ item.value.operator | default("and") }}'
-    action_value: '{{ item.value.value }}'
-  loop: '{{ opnsense_haproxy_actions | default({}) | dict2items }}'
-- name: Manage opnsense haproxy errorfiles
-  opnsense_haproxy_errorfile:
-    api_url: '{{ opnsense_api_url }}'
-    api_key: '{{ opnsense_api_key }}'
-    api_secret: '{{ opnsense_api_secret }}'
-    errorfile_name: '{{ item.key }}'
-    errorfile_code: '{{ item.value.code }}'
-    errorfile_description: '{{ item.value.description | default("") }}'
-    errorfile_content: '{{ item.value.content | default("") }}'
-    errorfile_state: '{{ item.value.state | default("present") }}'
-  loop: '{{ opnsense_haproxy_errorfiles | default({}) | dict2items }}'
 - name: Manage opnsense haproxy cpu affinity rules
   opnsense_haproxy_cpu:
     api_url: '{{ opnsense_api_url }}'
@@ -110,6 +74,17 @@
     cpu_thread_id: '{{ item.value.thread_id | default("all") }}'
     cpu_cpu_id: '{{ item.value.cpu_id | default("all") }}'
   loop: '{{ opnsense_haproxy_cpus | default({}) | dict2items }}'
+- name: Manage opnsense haproxy errorfiles
+  opnsense_haproxy_errorfile:
+    api_url: '{{ opnsense_api_url }}'
+    api_key: '{{ opnsense_api_key }}'
+    api_secret: '{{ opnsense_api_secret }}'
+    errorfile_name: '{{ item.key }}'
+    errorfile_code: '{{ item.value.code }}'
+    errorfile_description: '{{ item.value.description | default("") }}'
+    errorfile_content: '{{ item.value.content | default("") }}'
+    errorfile_state: '{{ item.value.state | default("present") }}'
+  loop: '{{ opnsense_haproxy_errorfiles | default({}) | dict2items }}'
 - name: Manage opnsense haproxy healthchecks
   opnsense_haproxy_healthcheck:
     api_url: '{{ opnsense_api_url }}'
@@ -143,6 +118,17 @@
     healthcheck_esmtp_domain: '{{ item.value.esmtp_domain | default("") }}'
     healthcheck_db_user: '{{ item.value.db_user | default("") }}'
   loop: '{{ opnsense_haproxy_healthchecks | default({}) | dict2items }}'
+- name: Manage opnsense haproxy lua scripts
+  opnsense_haproxy_lua:
+    api_url: '{{ opnsense_api_url }}'
+    api_key: '{{ opnsense_api_key }}'
+    api_secret: '{{ opnsense_api_secret }}'
+    lua_name: '{{ item.key }}'
+    lua_enabled: '{{ item.value.enabled | default(True) }}'
+    lua_description: '{{ item.value.description | default("") }}'
+    lua_content: '{{ item.value.content | default("") }}'
+    lua_state: '{{ item.value.state | default("present") }}'
+  loop: '{{ opnsense_haproxy_luas | default({}) | dict2items }}'
 - name: Manage opnsense haproxy servers
   opnsense_haproxy_server:
     api_url: '{{ opnsense_api_url }}'
@@ -167,17 +153,17 @@
     server_source: '{{ item.value.source | default("") }}'
     server_advanced: '{{ item.value.advanced | default("") }}'
   loop: '{{ opnsense_haproxy_servers | default({}) | dict2items }}'
-- name: Manage opnsense haproxy lua scripts
-  opnsense_haproxy_lua:
+- name: Manage opnsense haproxy users
+  opnsense_haproxy_user:
     api_url: '{{ opnsense_api_url }}'
     api_key: '{{ opnsense_api_key }}'
     api_secret: '{{ opnsense_api_secret }}'
-    lua_name: '{{ item.key }}'
-    lua_enabled: '{{ item.value.enabled | default(True) }}'
-    lua_description: '{{ item.value.description | default("") }}'
-    lua_content: '{{ item.value.content | default("") }}'
-    lua_state: '{{ item.value.state | default("present") }}'
-  loop: '{{ opnsense_haproxy_luas | default({}) | dict2items }}'
+    user_state: '{{ item.value.state | default("present") }}'
+    user_name: '{{ item.key }}'
+    user_password: '{{ item.value.password }}'
+    user_description: '{{ item.value.description | default("") }}'
+    user_enabled: '{{ item.value.enabled | default(True) }}'
+  loop: '{{ opnsense_haproxy_users | default({}) | dict2items }}'
 - name: Manage opnsense haproxy user groups
   opnsense_haproxy_group:
     api_url: '{{ opnsense_api_url }}'
@@ -240,6 +226,20 @@
     backend_linked_actions: '{{ item.value.linked_actions | default([]) }}'
     backend_linked_errorfiles: '{{ item.value.linked_errorfiles | default([]) }}'
   loop: '{{ opnsense_haproxy_backends | default({}) | dict2items }}'
+- name: Manage opnsense haproxy actions
+  opnsense_haproxy_action:
+    api_url: '{{ opnsense_api_url }}'
+    api_key: '{{ opnsense_api_key }}'
+    api_secret: '{{ opnsense_api_secret }}'
+    action_state: '{{ item.value.state | default("present") }}'
+    action_name: '{{ item.key }}'
+    action_description: '{{ item.value.description | default("") }}'
+    action_type: '{{ item.value.type }}'
+    action_linked_acls: '{{ item.value.linked_acls | default([]) }}'
+    action_test_type: '{{ item.value.test_type | default("if") }}'
+    action_operator: '{{ item.value.operator | default("and") }}'
+    action_value: '{{ item.value.value }}'
+  loop: '{{ opnsense_haproxy_actions | default({}) | dict2items }}'
 - name: Manage opnsense haproxy frontends
   opnsense_haproxy_frontend:
     api_url: '{{ opnsense_api_url }}'
