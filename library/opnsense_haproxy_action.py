@@ -140,9 +140,12 @@ def main():
         desired_properties[action_type_key + '_code'] = value_code
         value_reason = action_value.split('::')[1]
         desired_properties[action_type_key + '_reason'] = value_reason
+    # Special case for use_backend since it needs a uuid
+    elif action_type == 'use_backend':
+        desired_properties[action_type_key] = apiconnection.getUuidByName('backend', action_value)
     else:
         desired_properties[action_type_key] = action_value
-    
+
     # Initialize some control vars
     needs_change = False
     uuid = ''
@@ -200,7 +203,13 @@ def main():
                                 additional_msg.append('action value differs')
                                 needs_change = True
                                 changed_properties[special_property] = desired_properties[special_property]
-                
+            # Check if value of action needs to be changed:
+            if not needs_change and action_type_key in action and action_type_key not in [ 'use_backend' ]:
+                if action[action_type_key] != desired_properties[action_type_key]:
+                    needs_change = True
+                    changed_properties[action_type_key] = desired_properties[action_type_key]
+                    additional_msg.append('Changing %s: %s => %s' %(action_type_key, action[action_type_key], desired_properties[action_type_key]))
+
             # Check if currently an acl is linked which should not be linked:
             for key, value in action['linkedAcls'].iteritems():
                 if value['selected'] == 1:
@@ -227,36 +236,6 @@ def main():
                 result = {'changed': True, 'msg': ['Action %s must be changed.' %action_name, additional_msg]}
         else:
             if not module.check_mode:
-                desired_properties['type'] = action_type
-                action_type_key = action_type.replace('-','_')
-                # Special case for http header which have a _name and a _content field:
-                if 'http' in action_type and 'header' in action_type:
-                    # del only needs the name of HTTP header to delete
-                    if 'del' in action_type:
-                        desired_properties[action_type_key + '_name'] = action_value
-                    else:
-                        value_name = action_value.split('::')[0]
-                        desired_properties[action_type_key + '_name'] = value_name
-                        # regex actions have _name and _regex
-                        if 'regex' in action_type:
-                            value_regex = action_value.split('::')[1]
-                            desired_properties[action_type_key + '_regex'] = value_regex
-                        else:
-                            value_content = action_value.split('::')[1]
-                            desired_properties[action_type_key + '_content'] = value_content
-                # Special case for http_*_replace_value which also needs http_*_replace_regex
-                elif 'http' in action_type and 'value' in action_type:
-                    value_name = action_value.split('::')[0]
-                    desired_properties[action_type_key + '_name'] = value_name
-                    value_regex = action_value.split('::')[1]
-                    desired_properties[action_type_key + '_regex'] = value_regex
-                elif 'http' in action_type and 'status' in action_type:
-                    value_code = action_value.split('::')[0]
-                    desired_properties[action_type_key + '_code'] = value_code
-                    value_reason = action_value.split('::')[1]
-                    desired_properties[action_type_key + '_reason'] = value_reason
-                else:
-                    desired_properties[action_type_key] = action_value
                 additional_msg.append(apiconnection.createObject('action', action_name, desired_properties))
                 if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
             result = {'changed': True, 'msg': ['Action %s must be created.' %action_name, additional_msg]}
