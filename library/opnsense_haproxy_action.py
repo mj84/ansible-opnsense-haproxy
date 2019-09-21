@@ -204,7 +204,7 @@ def main():
                                 needs_change = True
                                 changed_properties[special_property] = desired_properties[special_property]
             # Check if value of action needs to be changed:
-            if not needs_change and action_type_key in action and action_type_key not in [ 'use_backend' ]:
+            if not needs_change and action_type_key in action:
                 if action[action_type_key] != desired_properties[action_type_key]:
                     needs_change = True
                     changed_properties[action_type_key] = desired_properties[action_type_key]
