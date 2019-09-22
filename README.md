@@ -57,10 +57,6 @@ These are:
 * Servers
 
 
-Order of lists:  
-There seems to be a bug (https://github.com/opnsense/plugins/issues/1494) which breaks the order of rules when changing *other* properties than rules.  
-As a workaround these Ansible modules always pass the linked rules whenever *any* property changes.  
-
 Role Variables
 --------------
 
