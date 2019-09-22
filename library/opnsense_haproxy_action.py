@@ -185,8 +185,15 @@ def main():
                         additional_msg.append('%s not selected' %(complex_type))
                         needs_change = True
                         changed_properties = desired_properties
+            # Special case where use_backend contains a dict with one selected element
+            if not needs_change and action_type == 'use_backend':
+                current_use_backend = apiconnection.getSelected(action[action_type_key])
+                if current_use_backend != desired_properties[action_type_key]:
+                    needs_change = True
+                    changed_properties[action_type_key] = desired_properties[action_type_key]
+                    additional_msg.append('Changing %s: %s => %s' %(action_type_key, current_use_backend, desired_properties[action_type_key]))
             # Check special cases where differently named properties exist (HTTP header):
-            if not needs_change and 'http' in action_type and ('header' in action_type or 'value' in action_type or 'status' in action_type):
+            elif not needs_change and 'http' in action_type and ('header' in action_type or 'value' in action_type or 'status' in action_type):
                 if action[action_type_key + '_name'] != desired_properties[action_type_key + '_name']:
                     needs_change = True
                     changed_properties[action_type_key + '_name'] = desired_properties[action_type_key + '_name']
@@ -203,8 +210,9 @@ def main():
                                 additional_msg.append('action value differs')
                                 needs_change = True
                                 changed_properties[special_property] = desired_properties[special_property]
+
             # Check if value of action needs to be changed:
-            if not needs_change and action_type_key in action:
+            elif not needs_change and action_type_key in action:
                 if action[action_type_key] != desired_properties[action_type_key]:
                     needs_change = True
                     changed_properties[action_type_key] = desired_properties[action_type_key]
