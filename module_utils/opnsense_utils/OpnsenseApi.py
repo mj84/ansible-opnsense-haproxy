@@ -1,4 +1,5 @@
-#!/usr/bin/python# -*- coding: utf-8 -*-
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
 from __future__ import absolute_import, division, print_function
