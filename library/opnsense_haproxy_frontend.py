@@ -195,19 +195,55 @@ def main():
     # Fetch list of frontends
     frontends = apiconnection.listObjects('frontend')
 
+    # Get an empty default object:
+    # - to determine API version (not yet implemented)
+    # - to retrieve UUIDs for:
+    #   - SSL objects (ssl_certificates, ssl_default_certificate, ssl_clientAuthCAs, ssl_clientAuthCRLs)
+    #   - defaultBackend
+    #   - basicAuthUsers
+    #   - basicAuthGroups
+    #   - linkedCpuAffinityRules
+    #   - linkedActions
+    #   - linkedErrorfiles
+    empty_frontend = apiconnection.getObjectByUuid('frontend', '')
     # Need to get UUIDs for:
     # defaultBackend, basicAuthUsers, basicAuthGroups, linkedCpuAffinityRules, linkedActions, linkedErrorfiles
     frontend_default_backend_uuid = ''
     if frontend_default_backend != 'none':
-        frontend_default_backend_uuid = apiconnection.getUuidByName('backend', frontend_default_backend)
-    frontend_basic_auth_users_uuids = apiconnection.getUuidsFromNames('user', frontend_basic_auth_users)
-    frontend_basic_auth_groups_uuids = apiconnection.getUuidsFromNames('group', frontend_basic_auth_groups)
-    frontend_linked_cpu_affinity_rules_uuids = apiconnection.getUuidsFromNames('cpu', frontend_linked_cpu_affinity_rules)
-    frontend_linked_actions_uuids = apiconnection.getUuidsFromNames('action', frontend_linked_actions)
-    frontend_linked_errorfiles_uuids = apiconnection.getUuidsFromNames('errorfile', frontend_linked_errorfiles)
-    # Get an empty default object to retrieve UUIDs for:
-    # ssl_certificates, ssl_default_certificate, ssl_clientAuthCAs, ssl_clientAuthCRLs
-    empty_frontend = apiconnection.getObjectByUuid('frontend', '')
+        #frontend_default_backend_uuid = apiconnection.getUuidByName('backend', frontend_default_backend)
+        for key,value in empty_frontend['defaultBackend'].iteritems():
+            if value['value'] == frontend_default_backend:
+                frontend_default_backend_uuid = key
+    #frontend_basic_auth_users_uuids = apiconnection.getUuidsFromNames('user', frontend_basic_auth_users)
+    frontend_basic_auth_users_uuids = []
+    for frontend_basic_auth_user in frontend_basic_auth_users:
+        for key,value in empty_frontend['basicAuthUsers'].iteritems():
+            if value['value'] == frontend_basic_auth_user:
+                frontend_basic_auth_users_uuids.append(key)
+    #frontend_basic_auth_groups_uuids = apiconnection.getUuidsFromNames('group', frontend_basic_auth_groups)
+    frontend_basic_auth_groups_uuids = []
+    for frontend_basic_auth_group in frontend_basic_auth_groups:
+        for key,value in empty_frontend['basicAuthGroups'].iteritems():
+            if value['value'] == frontend_basic_auth_group:
+                frontend_basic_auth_groups_uuids.append(key)
+    #frontend_linked_cpu_affinity_rules_uuids = apiconnection.getUuidsFromNames('cpu', frontend_linked_cpu_affinity_rules)
+    frontend_linked_cpu_affinity_rules_uuids = []
+    for frontend_linked_cpu_affinity_rule in frontend_linked_cpu_affinity_rules:
+        for key,value in empty_frontend['linkedCpuAffinityRules'].iteritems():
+            if value['value'] == frontend_linked_cpu_affinity_rule:
+                frontend_linked_cpu_affinity_rules_uuids.append(key)
+    #frontend_linked_actions_uuids = apiconnection.getUuidsFromNames('action', frontend_linked_actions)
+    frontend_linked_actions_uuids = []
+    for frontend_linked_action in frontend_linked_actions:
+        for key,value in empty_frontend['linkedActions'].iteritems():
+            if value['value'] == frontend_linked_action:
+                frontend_linked_actions_uuids.append(key)
+    #frontend_linked_errorfiles_uuids = apiconnection.getUuidsFromNames('errorfile', frontend_linked_errorfiles)
+    frontend_linked_errorfiles_uuids = []
+    for frontend_linked_errorfile in frontend_linked_errorfiles:
+        for key,value in empty_frontend['linkedErrorfiles'].iteritems():
+            if value['value'] == frontend_linked_errorfile:
+                frontend_linked_errorfiles_uuids.append(key)
     frontend_ssl_certificates_uuids = apiconnection.getSslObjectKeys(empty_frontend['ssl_certificates'], frontend_ssl_certificates)
     # Only fetch default SSL cert uuid when one is set, otherwise supply an empty string
     frontend_ssl_default_certificate_uuid = ''

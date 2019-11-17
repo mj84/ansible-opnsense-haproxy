@@ -184,7 +184,7 @@ def main():
     acl_src_sess_cnt_comparison = module.params['acl_src_sess_cnt_comparison']
     acl_src_sess_cnt = module.params['acl_src_sess_cnt']
     acl_nbsrv = module.params['acl_nbsrv']
-    acl_nbsrv_backend = apiconnection.getUuidByName('backend', module.params['acl_nbsrv_backend'])
+    acl_nbsrv_backend = module.params['acl_nbsrv_backend']
     acl_ssl_fc_sni = module.params['acl_ssl_fc_sni']
     acl_ssl_sni = module.params['acl_ssl_sni']
     acl_ssl_sni_sub = module.params['acl_ssl_sni_sub']
@@ -193,17 +193,38 @@ def main():
     acl_ssl_sni_reg = module.params['acl_ssl_sni_reg']
     acl_custom_acl = module.params['acl_custom_acl']
     acl_value = module.params['acl_value']
-    acl_query_backend = apiconnection.getUuidByName('backend', module.params['acl_query_backend'])
+    acl_query_backend = module.params['acl_query_backend']
     acl_allowed_users = module.params['acl_allowed_users']
+    acl_allowed_groups = module.params['acl_allowed_groups']
+
+    # Get empty ACL object to lookup UUIDs for allowedUsers, allowedGroups, nbsrv_backend, queryBackend
+    empty_acl = apiconnection.getObjectByUuid('acl', '')
+    #acl_nbsrv_backend = apiconnection.getUuidByName('backend', module.params['acl_nbsrv_backend'])
+    acl_nbsrv_backend_uuid = ''
+    if acl_nbsrv_backend != '':
+        for key,value in empty_acl['nbsrv_backend'].iteritems():
+            if value['value'] == acl_nbsrv_backend:
+                acl_nbsrv_backend_uuid = key
+    #acl_query_backend = apiconnection.getUuidByName('backend', module.params['acl_query_backend'])
+    acl_query_backend_uuid = ''
+    if acl_query_backend != '':
+        for key,value in empty_acl['queryBackend'].iteritems():
+            if value['value'] == acl_query_backend:
+                acl_query_backend_uuid = key
     # Resolve UUIDs for users
     acl_allowed_users_uuids = []
-    for user in acl_allowed_users:
-        acl_allowed_users_uuids.append(apiconnection.getUuidByName('user', user))
-    acl_allowed_groups = module.params['acl_allowed_groups']
+    for acl_allowed_user in acl_allowed_users:
+        #acl_allowed_users_uuids.append(apiconnection.getUuidByName('user', acl_allowed_user))
+        for key,value in empty_acl['allowedUsers'].iteritems():
+            if value['value'] == acl_allowed_user:
+                acl_allowed_users_uuids.append(key)
     # Resolve UUIDs for allowedGroups
     acl_allowed_groups_uuids = []
-    for group in acl_allowed_groups:
-        acl_allowed_groups_uuids.append(apiconnection.getUuidByName('group', group))
+    for acl_allowed_group in acl_allowed_groups:
+        #acl_allowed_groups_uuids.append(apiconnection.getUuidByName('group', acl_allowed_group))
+        for key,value in empty_acl['allowedGroups'].iteritems():
+            if value['value'] == acl_allowed_group:
+                acl_allowed_groups_uuids.append(key)
 
     # Fetch list of acls
     acls = apiconnection.listObjects('acl')
@@ -252,7 +273,7 @@ def main():
         'src_sess_cnt_comparison': acl_src_sess_cnt_comparison,
         'src_sess_cnt': acl_src_sess_cnt,
         'nbsrv': acl_nbsrv,
-        'nbsrv_backend': acl_nbsrv_backend,
+        'nbsrv_backend': acl_nbsrv_backend_uuid,
         'ssl_fc_sni': acl_ssl_fc_sni,
         'ssl_sni': acl_ssl_sni,
         'ssl_sni_sub': acl_ssl_sni_sub,
@@ -262,8 +283,8 @@ def main():
         'custom_acl': acl_custom_acl,
         'value': acl_value,
         'queryBackend': acl_query_backend,
-        'allowedUsers': ','.join(acl_allowed_users),
-        'allowedGroups': ','.join(acl_allowed_groups)
+        'allowedUsers': ','.join(acl_allowed_users_uuids),
+        'allowedGroups': ','.join(acl_allowed_groups_uuids)
     }
     # Prepare dict with properties needing change
     changed_properties = {}

@@ -53,14 +53,19 @@ def main():
     # Fetch list of groups
     groups = apiconnection.listObjects('group')
 
+    # Get an empty group object to lookup UUIDs for group members
+    empty_group = apiconnection.getObjectByUuid('group', '')
+    group_members_uuids = []
+    for group_member in group_members:
+        for key,value in empty_group['members']:
+            if value['value'] == group_member:
+                group_members_uuids.append(key)
+
     # Build dict with desired state
-    group_members_keys = []
-    for member in group_members:
-        member_id = apiconnection.getUuidByName('user', member)
     desired_properties = {
         'enabled': group_enabled,
         'description': group_description,
-        'members': ','.join(apiconnection.getUuidsFromNames('user', group_members))
+        'members': ','.join(group_members_uuids)
     }
     # Prepare dict with properties needing change
     changed_properties = {}

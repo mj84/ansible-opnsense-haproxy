@@ -105,6 +105,13 @@ def main():
 
     # Replace all dashes in action_type since their keys only use underscores:
     action_type_key = action_type.replace('-', '_')
+    # Retrieve an empty action object to lookup UUIDs of linked ACLs
+    empty_action = apiconnection.getObjectByUuid('action', '')
+    action_linked_acls_uuids = []
+    for action_linked_acl in action_linked_acls:
+        for key,value in empty_action['linkedAcls'].iteritems():
+            if value['value'] == action_linked_acl:
+                action_linked_acls_uuids.append(key)
     # Build dict with desired state
     desired_properties = {
         'description': action_description,
@@ -112,7 +119,8 @@ def main():
         'operator': action_operator,
         'type': action_type,
         action_type_key: action_value,
-        'linkedAcls': ','.join(apiconnection.getUuidsFromNames('acl', action_linked_acls))
+        'linkedAcls': ','.join(action_linked_acls_uuids)
+        #'linkedAcls': ','.join(apiconnection.getUuidsFromNames('acl', action_linked_acls))
     }
     # Special case for several http actions which use 2 fields:
     if 'http' in action_type and 'header' in action_type:
@@ -142,7 +150,12 @@ def main():
         desired_properties[action_type_key + '_reason'] = value_reason
     # Special case for use_backend since it needs a uuid
     elif action_type == 'use_backend':
-        desired_properties[action_type_key] = apiconnection.getUuidByName('backend', action_value)
+        #desired_properties[action_type_key] = apiconnection.getUuidByName('backend', action_value)
+        backend_uuid = ''
+        for key,value in empty_action['use_backend'].iteritems():
+            if value['value'] == action_value:
+                backend_uuid = key
+        desired_properties[action_type_key] = backend_uuid
     else:
         desired_properties[action_type_key] = action_value
 
@@ -222,16 +235,21 @@ def main():
             for key, value in action['linkedAcls'].iteritems():
                 if value['selected'] == 1:
                     # Get name of linkedAcl and compare with action_linked_acls list
-                    acl = apiconnection.getObjectByUuid('acl', key)
-                    additional_msg.append('Found a linked acl with name: %s' % acl['name'])
-                    if acl['name'] not in action_linked_acls:
+                    #acl = apiconnection.getObjectByUuid('acl', key)
+                    acl = empty_action['linkedAcls'][key]['value']
+                    additional_msg.append('Found a linked acl with name: %s' % acl)
+                    if acl not in action_linked_acls:
                     # Current element is not in action_linked_acls, rebuild linkedAcls completely
                         needs_change = True
                         additional_msg.append('linkedAcls containing unwanted element')
                         changed_properties['linkedAcls'] = desired_properties['linkedAcls']
-            # Reverse acl check, make sure every entry in linked_acl is included in action object
+            # Reverse acl check, make sure every entry in linked_acl is selected in current action object
             for acl in action_linked_acls:
-                acl_uuid = apiconnection.getUuidByName('acl', acl)
+                #acl_uuid = apiconnection.getUuidByName('acl', acl)
+                acl_uuid = ''
+                for key,value in empty_action['linkedAcls'].iteritems():
+                    if value['value'] == acl:
+                        acl_uuid = key
                 if action['linkedAcls'][acl_uuid]['selected'] == 0:
                     needs_change = True
                     changed_properties['linkedAcls'] = desired_properties['linkedAcls']

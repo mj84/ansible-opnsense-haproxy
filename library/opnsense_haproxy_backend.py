@@ -151,17 +151,52 @@ def main():
 
     # Fetch list of backends
     backends = apiconnection.listObjects('backend')
-
+    # Get an empty backend object to lookup UUIDs for:
+    # - linkedServers
+    # - healthCheck
+    # - basicAuthUsers
+    # - basicAuthGroups
+    # - linkedActions
+    # - linkedErrorfiles
+    empty_backend = apiconnection.getObjectByUuid('backend', '')
     # Need to get UUIDs for:
     # linkedServers, healthCheck, basicAuthUsers, basicAuthGroups, linkedActions, linkedErrorfiles
-    backend_linked_servers_uuids = apiconnection.getUuidsFromNames('server', backend_linked_servers)
+    backend_linked_servers_uuids = []
+    #backend_linked_servers_uuids = apiconnection.getUuidsFromNames('server', backend_linked_servers)
+    for backend_linked_server in backend_linked_servers:
+        for key,value in empty_backend['linkedServers'].iteritems():
+            if value['value'] == backend_linked_server:
+                backend_linked_servers_uuids.append(key)
     backend_health_check_uuid = ''
     if backend_health_check != '':
-        backend_health_check_uuid = apiconnection.getUuidByName('healthcheck', backend_health_check)
-    backend_basic_auth_users_uuids = apiconnection.getUuidsFromNames('user', backend_basic_auth_users)
-    backend_basic_auth_groups_uuids = apiconnection.getUuidsFromNames('group', backend_basic_auth_groups)
-    backend_linked_actions_uuids = apiconnection.getUuidsFromNames('action', backend_linked_actions)
-    backend_linked_errorfiles_uuids = apiconnection.getUuidsFromNames('errorfile', backend_linked_errorfiles)
+        #backend_health_check_uuid = apiconnection.getUuidByName('healthcheck', backend_health_check)
+        for key,value in empty_backend['healthCheck'].iteritems():
+            if value['value'] == backend_health_check:
+                backend_health_check_uuid = key
+    #backend_basic_auth_users_uuids = apiconnection.getUuidsFromNames('user', backend_basic_auth_users)
+    backend_basic_auth_users_uuids = []
+    for backend_basic_auth_user in backend_basic_auth_users:
+        for key,value in empty_backend['basicAuthUsers'].iteritems():
+            if value['value'] == backend_basic_auth_user:
+                backend_basic_auth_users_uuids.append(key)
+    #backend_basic_auth_groups_uuids = apiconnection.getUuidsFromNames('group', backend_basic_auth_groups)
+    backend_basic_auth_groups_uuids = []
+    for backend_basic_auth_group in backend_basic_auth_groups:
+        for key,value in empty_backend['basicAuthGroups'].iteritems():
+            if value['value'] == backend_basic_auth_group:
+                backend_basic_auth_groups_uuids.append(key)
+    #backend_linked_actions_uuids = apiconnection.getUuidsFromNames('action', backend_linked_actions)
+    backend_linked_actions_uuids = []
+    for backend_linked_action in backend_linked_actions:
+        for key,value in empty_backend['linkedActions'].iteritems():
+            if value['value'] == backend_linked_action:
+                backend_linked_actions_uuids.append(key)
+    #backend_linked_errorfiles_uuids = apiconnection.getUuidsFromNames('errorfile', backend_linked_errorfiles)
+    backend_linked_errorfiles_uuids = []
+    for backend_linked_errorfile in backend_linked_errorfiles:
+        for key,value in empty_backend['linkedErrorfiles'].iteritems():
+            if value['value'] == backend_linked_errorfile:
+                backend_linked_errorfiles_uuids.append(key)
     # Build dict with desired state
     desired_properties = {
         'enabled': backend_enabled,
