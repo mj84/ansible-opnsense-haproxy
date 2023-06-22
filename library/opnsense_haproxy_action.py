@@ -109,7 +109,7 @@ def main():
     empty_action = apiconnection.getObjectByUuid('action', '')
     action_linked_acls_uuids = []
     for action_linked_acl in action_linked_acls:
-        for key,value in empty_action['linkedAcls'].iteritems():
+        for key,value in empty_action['linkedAcls'].items():
             if value['value'] == action_linked_acl:
                 action_linked_acls_uuids.append(key)
     # Build dict with desired state
@@ -152,7 +152,7 @@ def main():
     elif action_type == 'use_backend':
         #desired_properties[action_type_key] = apiconnection.getUuidByName('backend', action_value)
         backend_uuid = ''
-        for key,value in empty_action['use_backend'].iteritems():
+        for key,value in empty_action['use_backend'].items():
             if value['value'] == action_value:
                 backend_uuid = key
         desired_properties[action_type_key] = backend_uuid
@@ -192,7 +192,7 @@ def main():
             # Entries in testType, operator and type dicts must be checked separately if property selected == 1:
             complex_types_list = ['testType', 'operator', 'type']
             for complex_type in complex_types_list:
-                for key, value in action[complex_type].iteritems():
+                for key, value in action[complex_type].items():
                     if value['selected'] == '1' and key != desired_properties[complex_type]:
                     # Currently selected type value does not match desired type value, replace the whole dict:
                         additional_msg.append('%s not selected' %(complex_type))
@@ -232,7 +232,7 @@ def main():
                     additional_msg.append('Changing %s: %s => %s' %(action_type_key, action[action_type_key], desired_properties[action_type_key]))
 
             # Check if currently an acl is linked which should not be linked:
-            for key, value in action['linkedAcls'].iteritems():
+            for key, value in action['linkedAcls'].items():
                 if value['selected'] == 1:
                     # Get name of linkedAcl and compare with action_linked_acls list
                     #acl = apiconnection.getObjectByUuid('acl', key)
@@ -247,7 +247,7 @@ def main():
             for acl in action_linked_acls:
                 #acl_uuid = apiconnection.getUuidByName('acl', acl)
                 acl_uuid = ''
-                for key,value in empty_action['linkedAcls'].iteritems():
+                for key,value in empty_action['linkedAcls'].items():
                     if value['value'] == acl:
                         acl_uuid = key
                 if action['linkedAcls'][acl_uuid]['selected'] == 0:

@@ -202,27 +202,27 @@ def main():
     #acl_nbsrv_backend = apiconnection.getUuidByName('backend', module.params['acl_nbsrv_backend'])
     acl_nbsrv_backend_uuid = ''
     if acl_nbsrv_backend != '':
-        for key,value in empty_acl['nbsrv_backend'].iteritems():
+        for key,value in empty_acl['nbsrv_backend'].items():
             if value['value'] == acl_nbsrv_backend:
                 acl_nbsrv_backend_uuid = key
     #acl_query_backend = apiconnection.getUuidByName('backend', module.params['acl_query_backend'])
     acl_query_backend_uuid = ''
     if acl_query_backend != '':
-        for key,value in empty_acl['queryBackend'].iteritems():
+        for key,value in empty_acl['queryBackend'].items():
             if value['value'] == acl_query_backend:
                 acl_query_backend_uuid = key
     # Resolve UUIDs for users
     acl_allowed_users_uuids = []
     for acl_allowed_user in acl_allowed_users:
         #acl_allowed_users_uuids.append(apiconnection.getUuidByName('user', acl_allowed_user))
-        for key,value in empty_acl['allowedUsers'].iteritems():
+        for key,value in empty_acl['allowedUsers'].items():
             if value['value'] == acl_allowed_user:
                 acl_allowed_users_uuids.append(key)
     # Resolve UUIDs for allowedGroups
     acl_allowed_groups_uuids = []
     for acl_allowed_group in acl_allowed_groups:
         #acl_allowed_groups_uuids.append(apiconnection.getUuidByName('group', acl_allowed_group))
-        for key,value in empty_acl['allowedGroups'].iteritems():
+        for key,value in empty_acl['allowedGroups'].items():
             if value['value'] == acl_allowed_group:
                 acl_allowed_groups_uuids.append(key)
 

@@ -164,37 +164,37 @@ def main():
     backend_linked_servers_uuids = []
     #backend_linked_servers_uuids = apiconnection.getUuidsFromNames('server', backend_linked_servers)
     for backend_linked_server in backend_linked_servers:
-        for key,value in empty_backend['linkedServers'].iteritems():
+        for key,value in empty_backend['linkedServers'].items():
             if value['value'] == backend_linked_server:
                 backend_linked_servers_uuids.append(key)
     backend_health_check_uuid = ''
     if backend_health_check != '':
         #backend_health_check_uuid = apiconnection.getUuidByName('healthcheck', backend_health_check)
-        for key,value in empty_backend['healthCheck'].iteritems():
+        for key,value in empty_backend['healthCheck'].items():
             if value['value'] == backend_health_check:
                 backend_health_check_uuid = key
     #backend_basic_auth_users_uuids = apiconnection.getUuidsFromNames('user', backend_basic_auth_users)
     backend_basic_auth_users_uuids = []
     for backend_basic_auth_user in backend_basic_auth_users:
-        for key,value in empty_backend['basicAuthUsers'].iteritems():
+        for key,value in empty_backend['basicAuthUsers'].items():
             if value['value'] == backend_basic_auth_user:
                 backend_basic_auth_users_uuids.append(key)
     #backend_basic_auth_groups_uuids = apiconnection.getUuidsFromNames('group', backend_basic_auth_groups)
     backend_basic_auth_groups_uuids = []
     for backend_basic_auth_group in backend_basic_auth_groups:
-        for key,value in empty_backend['basicAuthGroups'].iteritems():
+        for key,value in empty_backend['basicAuthGroups'].items():
             if value['value'] == backend_basic_auth_group:
                 backend_basic_auth_groups_uuids.append(key)
     #backend_linked_actions_uuids = apiconnection.getUuidsFromNames('action', backend_linked_actions)
     backend_linked_actions_uuids = []
     for backend_linked_action in backend_linked_actions:
-        for key,value in empty_backend['linkedActions'].iteritems():
+        for key,value in empty_backend['linkedActions'].items():
             if value['value'] == backend_linked_action:
                 backend_linked_actions_uuids.append(key)
     #backend_linked_errorfiles_uuids = apiconnection.getUuidsFromNames('errorfile', backend_linked_errorfiles)
     backend_linked_errorfiles_uuids = []
     for backend_linked_errorfile in backend_linked_errorfiles:
-        for key,value in empty_backend['linkedErrorfiles'].iteritems():
+        for key,value in empty_backend['linkedErrorfiles'].items():
             if value['value'] == backend_linked_errorfile:
                 backend_linked_errorfiles_uuids.append(key)
     # Build dict with desired state
