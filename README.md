@@ -96,28 +96,21 @@ See [examples/site.yml](examples/site.yml) and [examples/group_vars/all.yml](exa
 
 ## Limitations
 
-### SSL CA / CRL / Client Certificate Two-Step Workflow
+### SSL CA / CRL / Client Certificate Resolution
 
-OPNsense's API does not allow querying SSL CA, CRL, or client certificate objects by name — they are referenced by internal UUIDs unknown at creation time. When a server needs one of these:
+SSL CA, CRL, and client certificate objects are referenced by internal UUIDs, but the modules resolve names to UUIDs at runtime using the empty-object template (which contains the full API catalog of all SSL objects). You can specify SSL references when creating a server — no two-step workflow is needed.
 
-1. Create/update the server **without** the SSL reference.
-2. Run the same task again with the SSL reference populated.
+If multiple SSL objects share the same description, the module warns and uses the last match. Descriptions should be kept unique to avoid ambiguity.
 
 ```yaml
-# First run — create server without SSL refs
-opnsense_haproxy_servers:
-  web1:
-    address: 10.0.0.1
-    port: "443"
-    ssl: true
-
-# Second run — add SSL CA reference
 opnsense_haproxy_servers:
   web1:
     address: 10.0.0.1
     port: "443"
     ssl: true
     ssl_ca: [my_ca]
+    ssl_crl: my_crl
+    ssl_client_certificate: my_client_cert
 ```
 
 ## Dependencies
