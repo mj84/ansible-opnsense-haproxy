@@ -7,7 +7,6 @@ complex comparison logic).
 
 from __future__ import absolute_import, division, print_function
 
-import typing
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -17,7 +16,6 @@ from .OpnsenseApi import (
     ConfigTestError,
     Haproxy,
     ObjectNotFoundError,
-    ObjectTypeError,
     OpnsenseApiError,
 )
 
@@ -189,8 +187,9 @@ class OpnsenseHaproxyModule(ABC):
             if prop == "name":
                 continue
 
-            # Handle dict-with-selected format (OPNsense selection fields)
-            if isinstance(current_value, dict) and "selected" in list(current_value.values())[0] if current_value else False:
+            # OPNsense returns selection fields as {"<uuid>": {"selected": "1", ...}}
+            # while the desired state holds the plain key.
+            if self._is_selection_dict(current_value):
                 selected = self.api.getSelected(current_value)
                 if selected != desired_value:
                     needs_change = True
@@ -202,6 +201,12 @@ class OpnsenseHaproxyModule(ABC):
                 messages.append("Changing %s: %s => %s" % (prop, current_value, desired_value))
 
         return needs_change, changes, messages
+
+    @staticmethod
+    def _is_selection_dict(value: Any) -> bool:
+        """True for an OPNsense selection dict, e.g. ``{"<uuid>": {"selected": "1"}}``."""
+        first = next(iter(value.values()), None) if isinstance(value, dict) else None
+        return isinstance(first, dict) and "selected" in first
 
     # ------------------------------------------------------------------
     # Reference resolution helpers

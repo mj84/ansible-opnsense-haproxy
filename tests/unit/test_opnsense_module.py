@@ -2,15 +2,10 @@
 
 from contextlib import contextmanager
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 from module_utils.opnsense_utils.OpnsenseModule import OpnsenseHaproxyModule
-from module_utils.opnsense_utils.OpnsenseApi import (
-    ObjectNotFoundError,
-    OpnsenseApiError,
-    ConfigTestError,
-)
+from module_utils.opnsense_utils.OpnsenseApi import ObjectNotFoundError
 
 
 # Minimal concrete subclass for testing
@@ -199,3 +194,21 @@ class TestDiffState:
             desired = {"name": "new_name", "value": "same"}
             needs_change, changes, messages = module._diff_state(current, desired)
             assert needs_change is False
+
+    def test_flat_values_are_not_treated_as_selection_dicts(self):
+        """Empty, string and numeric values must not reach the selection branch."""
+        with _make_mock_module() as module:
+            current = {"name": "test_obj", "a": "", "b": 0, "c": {}, "d": [], "e": "plain"}
+            desired = {"name": "test_obj", "a": "", "b": 0, "c": {}, "d": [], "e": "plain"}
+            needs_change, changes, messages = module._diff_state(current, desired)
+            assert needs_change is False
+            module._mock_api.getSelected.assert_not_called()
+
+    def test_is_selection_dict(self):
+        """The API shape is {"<uuid>": {"selected": "1", ...}}."""
+        is_selection = OpnsenseHaproxyModule._is_selection_dict
+        assert is_selection({"uuid1": {"selected": "1", "name": "web1"}}) is True
+        assert is_selection({}) is False
+        assert is_selection({"uuid1": "web1"}) is False
+        assert is_selection("web1") is False
+        assert is_selection(None) is False

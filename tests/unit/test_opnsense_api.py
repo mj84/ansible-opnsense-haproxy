@@ -89,6 +89,16 @@ class TestGetSelected:
         }
         assert api.getSelected(data) == ""
 
+    def test_get_selected_string_flag(self):
+        """The API reports 'selected' as a string, which is what the modules see."""
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        data = {
+            "uuid1": {"name": "web1", "selected": "0"},
+            "uuid2": {"name": "web2", "selected": "1"},
+        }
+        assert api.getSelected(data) == "uuid2"
+        assert api.getSelected(data, retval="name") == "web2"
+
 
 class TestGetSelectedList:
     """Test getSelectedList helper."""
@@ -115,6 +125,15 @@ class TestGetSelectedList:
     def test_get_selected_list_empty(self):
         api = Haproxy("https://firewall.local", ("key", "secret"), False)
         assert api.getSelectedList([]) == []
+
+    def test_get_selected_list_string_flag(self):
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        data = {
+            "uuid1": {"name": "web1", "selected": "1"},
+            "uuid2": {"name": "web2", "selected": "0"},
+            "uuid3": {"name": "web3", "selected": "1"},
+        }
+        assert api.getSelectedList(data, retval="key") == ["uuid1", "uuid3"]
 
 
 class TestFindValueInDict:

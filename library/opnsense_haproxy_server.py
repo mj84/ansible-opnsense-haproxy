@@ -185,7 +185,7 @@ changed:
   returned: always
 """
 
-from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
+from ansible.module_utils.opnsense_utils import OpnsenseHaproxyModule
 
 
 class ServerModule(OpnsenseHaproxyModule):

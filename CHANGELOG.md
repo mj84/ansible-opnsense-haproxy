@@ -24,7 +24,7 @@
 
 ### Added
 
-- **Base module class** (`OpnsenseHaproxyModule`) — Eliminates ~80% of duplicated CRUD code across all 14 modules.
+- **Base module class** (`OpnsenseHaproxyModule`) — Eliminates ~80% of duplicated CRUD code across all 12 modules.
 - **Custom exceptions** — `OpnsenseApiError`, `ObjectNotFoundError`, `ObjectTypeError`, `ConfigTestError`.
 - **Type hints and docstrings** — All API client methods are now typed and documented.
 - **Full module documentation** — Every module now has complete `DOCUMENTATION`, `EXAMPLES`, and `RETURN` blocks.
@@ -40,12 +40,43 @@
 - **API client** — Added `timeout=30` to all `requests` calls.
 - **API client** — `iteritems()` replaced with `.items()` for Python 3 compatibility.
 - **API client** — `compareLists()` is now a `@staticmethod`.
-- **Server module** — SSL CA/CRL/client certificate resolution improved; creation clears SSL refs (two-step workflow preserved).
+- **Server module** — SSL CA/CRL/client certificate names are resolved when the server is created, so one step is enough.
 
-### Removed
+### Fixed
 
-- Empty `handlers/main.yml`, `defaults/main.yml`, `vars/main.yml` stubs.
-- `manage_object.yml` generic task file (replaced by per-type task files).
+The role could report success without configuring anything. Every
+`tasks/manage_*.yml` passed only the connection arguments to its module, so the
+objects from the `opnsense_haproxy_*` dicts were never sent to the API.
+
+- **Task files** — each task now merges the shared connection arguments, the
+  object's parameters and its name (the dict key) into one argument set.
+  Per-object `state: absent` and `haproxy_reload` work as documented.
+- **Module imports** — the `from __future__ import` block sat below
+  `DOCUMENTATION` in every module file, so all 12 modules failed to import.
+- **Module argument spec** — `_create_ansible_module()` used the base class's
+  empty spec, so no module parameter was declared and every parameter was
+  rejected or silently dropped.
+- **Module names in tasks** — modules were called as
+  `local.maj.opnsense_haproxy_*`; role-local `library/` modules are only
+  reachable by their short name.
+- **`postRequest`** — assumed a dict response; the configtest and reconfigure
+  endpoints answer with a plain string, which raised `AttributeError` on every
+  run with `haproxy_reload: true`.
+- **ACL module** — `description` was never declared, although the defaults
+  example used it.
+- **Server module** — `sslCA`/`sslCRL`/`sslClientCertificate` were dropped when
+  creating a server, contradicting the documented one-step usage.
+- **Map files** — the module existed but had no task file, so
+  `opnsense_haproxy_mapfiles` could not be used.
+- **Selection fields** — `getSelected()`/`getSelectedList()` compared
+  `selected == 1`, but the API flags the chosen option with the string `"1"`,
+  so a second run reported changes it could not avoid. Both helpers now match
+  either form, and `_diff_state()` recognises the selection-dict shape without
+  raising on plain values.
+- **CPU example** — `cpu_id: x0` is not offered by the API; the example uses `x1`.
+- **Role metadata** — `galaxy.yml` dependencies and `meta/main.yml` placement
+  fixed, `meta/runtime.yml` added, so the role can be installed and linted.
+
 
 ### Migration Guide
 

@@ -6,20 +6,20 @@ Ansible role for managing HAProxy configuration on **OPNsense firewalls** via th
 
 ## Supported Object Types
 
-| Type | Module | Description |
-|------|--------|-------------|
-| ACL | `opnsense_haproxy_acl` | Conditions (header, path, source, SSL, rate, etc.) |
-| Action | `opnsense_haproxy_action` | Rules (redirect, deny, use_backend, header manipulation) |
-| Backend | `opnsense_haproxy_backend` | Backend pools with servers, healthchecks, persistence |
-| CPU | `opnsense_haproxy_cpu` | CPU affinity rules |
-| Errorfile | `opnsense_haproxy_errorfile` | Custom error pages (403, 503, etc.) |
-| Frontend | `opnsense_haproxy_frontend` | Public services with binds, SSL, stickiness |
-| Group | `opnsense_haproxy_group` | User groups |
-| Healthcheck | `opnsense_haproxy_healthcheck` | Healthchecks (HTTP, TCP, MySQL, PostgreSQL, etc.) |
-| Lua | `opnsense_haproxy_lua` | Lua scripts |
-| Mapfile | `opnsense_haproxy_mapfile` | Map files |
-| Server | `opnsense_haproxy_server` | Backend servers |
-| User | `opnsense_haproxy_user` | Users |
+| Type | Module | Role variable | Description |
+|------|--------|---------------|-------------|
+| ACL | `opnsense_haproxy_acl` | `opnsense_haproxy_acls` | Conditions (header, path, source, SSL, rate, etc.) |
+| Action | `opnsense_haproxy_action` | `opnsense_haproxy_actions` | Rules (redirect, deny, use_backend, header manipulation) |
+| Backend | `opnsense_haproxy_backend` | `opnsense_haproxy_backends` | Backend pools with servers, healthchecks, persistence |
+| CPU | `opnsense_haproxy_cpu` | `opnsense_haproxy_cpus` | CPU affinity rules |
+| Errorfile | `opnsense_haproxy_errorfile` | `opnsense_haproxy_errorfiles` | Custom error pages (403, 503, etc.) |
+| Frontend | `opnsense_haproxy_frontend` | `opnsense_haproxy_frontends` | Public services with binds, SSL, stickiness |
+| Group | `opnsense_haproxy_group` | `opnsense_haproxy_groups` | User groups |
+| Healthcheck | `opnsense_haproxy_healthcheck` | `opnsense_haproxy_healthchecks` | Healthchecks (HTTP, TCP, MySQL, PostgreSQL, etc.) |
+| Lua | `opnsense_haproxy_lua` | `opnsense_haproxy_luas` | Lua scripts |
+| Mapfile | `opnsense_haproxy_mapfile` | `opnsense_haproxy_mapfiles` | Map files |
+| Server | `opnsense_haproxy_server` | `opnsense_haproxy_servers` | Backend servers |
+| User | `opnsense_haproxy_user` | `opnsense_haproxy_users` | Users |
 
 ## Prerequisites
 
@@ -50,6 +50,33 @@ opnsense_haproxy_<type>:
     param1: value1
     param2: value2
 ```
+
+Every entry is passed straight to the module for that type, so any module
+parameter can be set per object — including `state: absent` to remove an object
+and `haproxy_reload: true` to apply HAProxy right after that one change. The
+name is always taken from the dict key.
+
+```yaml
+opnsense_haproxy_servers:
+  web1:
+    address: 10.0.0.1
+    port: "8080"
+  web2:
+    address: 10.0.0.2
+    port: "8080"
+    state: absent          # remove this server
+```
+
+Objects are managed in dependency order, so an object can reference another one
+that is defined in the same run:
+
+```
+ACLs → CPUs → Errorfiles → Mapfiles → Healthchecks → Lua → Servers
+→ Users → Groups → Backends → Actions → Frontends
+```
+
+References between objects use names, never UUIDs: `linked_servers` in a
+backend, `default_backend` in a frontend, `ssl_certificates` in a frontend.
 
 See the [examples](examples/) directory for complete variable definitions.
 
@@ -119,7 +146,11 @@ None. This role has no Ansible Galaxy or other dependencies.
 
 ## Module Parameters
 
-Each module accepts the common API parameters (`api_url`, `api_key`, `api_secret`, `api_ssl_verify`, `haproxy_reload`, `state`) plus type-specific parameters. See the module's `DOCUMENTATION` block (run `ansible-doc local.maj.opnsense_haproxy_<type>`) for the full parameter list.
+Each module accepts the common API parameters (`api_url`, `api_key`, `api_secret`, `api_ssl_verify`, `haproxy_reload`, `state`) plus type-specific parameters. To read the full parameter list of a module, run it from the role directory:
+
+```sh
+ANSIBLE_LIBRARY=library ansible-doc opnsense_haproxy_<type>
+```
 
 ## License
 

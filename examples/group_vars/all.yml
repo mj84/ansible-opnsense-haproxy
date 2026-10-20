@@ -20,6 +20,14 @@ opnsense_haproxy_acls:
     value: /static
     description: "Static files"
 
+# Map files
+opnsense_haproxy_mapfiles:
+  redirect_map:
+    description: "Path to backend map"
+    content: |
+      /api api_pool
+      /static static_pool
+
 # Servers
 opnsense_haproxy_servers:
   web1:

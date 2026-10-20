@@ -13,7 +13,7 @@ from __future__ import absolute_import, division, print_function
 import json
 import typing
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import requests
 
@@ -295,7 +295,9 @@ class Haproxy:
             The selected key or value, or ``''`` if nothing is selected.
         """
         for key, value in valuesdict.items():
-            if value.get("selected") == 1:
+            # The API sends 'selected' as a string ("1"), tests and callers may
+            # pass an int.
+            if str(value.get("selected")) == "1":
                 if retval == "key":
                     return key
                 if retval not in value:
@@ -319,7 +321,7 @@ class Haproxy:
         if isinstance(valuesdict, list) and valuesdict == []:
             return []
         for key, value in valuesdict.items():
-            if value.get("selected") == 1:
+            if str(value.get("selected")) == "1":
                 if retval == "key":
                     selected_items.append(key)
                 else:

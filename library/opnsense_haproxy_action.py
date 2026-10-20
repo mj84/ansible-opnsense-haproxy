@@ -184,7 +184,7 @@ changed:
   returned: always
 """
 
-from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
+from ansible.module_utils.opnsense_utils import OpnsenseHaproxyModule
 
 
 class ActionModule(OpnsenseHaproxyModule):
@@ -230,9 +230,6 @@ class ActionModule(OpnsenseHaproxyModule):
 
         # Resolve linked ACL UUIDs
         linked_acls_uuids = self._resolve_names_to_uuids(template, params["linked_acls"], "linkedAcls")
-
-        # Convert action type (dashes to underscores for API key)
-        action_type_key = params["type"].replace("-", "_")
 
         # Build the type-specific value dict
         type_value = self._build_type_value(params["type"], params["value"], template)
@@ -293,6 +290,12 @@ class ActionModule(OpnsenseHaproxyModule):
 
         action_type_key = params["type"].replace("-", "_")
         complex_types = ["testType", "operator", "type"]
+        # http_* actions carry sub-properties (header/value/status) instead of a
+        # single value under action_type_key.
+        has_http_subprops = (
+            "http" in params["type"]
+            and any(part in params["type"] for part in ("header", "value", "status"))
+        )
 
         # Check simple properties
         for prop in ["description"]:
@@ -314,13 +317,13 @@ class ActionModule(OpnsenseHaproxyModule):
         if action_type_key in desired:
             if action_type_key in current:
                 # Simple type value
-                if not ("http" in params["type"] and ("header" in params["type"] or "value" in params["type"] or "status" in params["type"])):
+                if not has_http_subprops:
                     if current[action_type_key] != desired[action_type_key]:
                         needs_change = True
                         changes[action_type_key] = desired[action_type_key]
-                        messages.append(
-                            "Changing %s: %s => %s" % (action_type_key, current[action_type_key], desired[action_type_key])
-                        )
+                        messages.append("Changing %s: %s => %s" % (
+                            action_type_key, current[action_type_key], desired[action_type_key]
+                        ))
             else:
                 # Type key missing entirely — rebuild
                 needs_change = True
@@ -328,7 +331,7 @@ class ActionModule(OpnsenseHaproxyModule):
                 messages.append("Action type key %s not in current object" % action_type_key)
 
         # Check HTTP header / value / status sub-properties
-        if "http" in params["type"] and ("header" in params["type"] or "value" in params["type"] or "status" in params["type"]):
+        if has_http_subprops:
             for special_prop in [action_type_key + "_name", action_type_key + "_regex",
                                  action_type_key + "_content", action_type_key + "_code",
                                  action_type_key + "_reason"]:

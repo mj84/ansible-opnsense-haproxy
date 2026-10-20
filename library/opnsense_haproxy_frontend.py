@@ -419,7 +419,7 @@ changed:
   returned: always
 """
 
-from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
+from ansible.module_utils.opnsense_utils import OpnsenseHaproxyModule
 
 
 class FrontendModule(OpnsenseHaproxyModule):
@@ -526,15 +526,18 @@ class FrontendModule(OpnsenseHaproxyModule):
 
         basic_auth_users_uuids = self._resolve_names_to_uuids(template, params["basic_auth_users"], "basicAuthUsers")
         basic_auth_groups_uuids = self._resolve_names_to_uuids(template, params["basic_auth_groups"], "basicAuthGroups")
-        cpu_affinity_uuids = self._resolve_names_to_uuids(template, params["linked_cpu_affinity_rules"], "linkedCpuAffinityRules")
+        cpu_affinity_uuids = self._resolve_names_to_uuids(
+            template, params["linked_cpu_affinity_rules"], "linkedCpuAffinityRules")
         linked_actions_uuids = self._resolve_names_to_uuids(template, params["linked_actions"], "linkedActions")
-        linked_errorfiles_uuids = self._resolve_names_to_uuids(template, params["linked_errorfiles"], "linkedErrorfiles")
+        linked_errorfiles_uuids = self._resolve_names_to_uuids(
+            template, params["linked_errorfiles"], "linkedErrorfiles")
 
         # Resolve SSL references
         ssl_cert_uuids = self.api.getSslObjectKeys(template["ssl_certificates"], params["ssl_certificates"])
         ssl_default_cert_uuid = ""
         if params["ssl_default_certificate"]:
-            ssl_default_cert_uuid = self.api.getSslObjectKeys(template["ssl_default_certificate"], [params["ssl_default_certificate"]])[0]
+            ssl_default_cert_uuid = self.api.getSslObjectKeys(
+                template["ssl_default_certificate"], [params["ssl_default_certificate"]])[0]
         ssl_cas_uuids = self.api.getSslObjectKeys(template["ssl_clientAuthCAs"], params["ssl_client_auth_cas"])
         ssl_crls_uuids = self.api.getSslObjectKeys(template["ssl_clientAuthCRLs"], params["ssl_client_auth_crls"])
 
@@ -627,10 +630,12 @@ class FrontendModule(OpnsenseHaproxyModule):
                     continue
 
             # Skip advanced SSL properties if not enabled
-            if ssl_advanced is False and prop in ("ssl_bindOptions", "ssl_cipherList",
-                                                   "ssl_http2Enabled", "ssl_hstsEnabled",
-                                                   "ssl_hstsIncludeSubdomains", "ssl_hstsPreload",
-                                                   "ssl_hstsMaxAge"):
+            if ssl_advanced is False and prop in (
+                "ssl_bindOptions", "ssl_cipherList",
+                "ssl_http2Enabled", "ssl_hstsEnabled",
+                "ssl_hstsIncludeSubdomains", "ssl_hstsPreload",
+                "ssl_hstsMaxAge",
+            ):
                 continue
 
             # Client auth properties only matter when client auth is enabled

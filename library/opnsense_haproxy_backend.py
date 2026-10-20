@@ -347,7 +347,7 @@ changed:
   returned: always
 """
 
-from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
+from ansible.module_utils.opnsense_utils import OpnsenseHaproxyModule
 
 
 class BackendModule(OpnsenseHaproxyModule):
@@ -430,7 +430,8 @@ class BackendModule(OpnsenseHaproxyModule):
         basic_auth_users_uuids = self._resolve_names_to_uuids(template, params["basic_auth_users"], "basicAuthUsers")
         basic_auth_groups_uuids = self._resolve_names_to_uuids(template, params["basic_auth_groups"], "basicAuthGroups")
         linked_actions_uuids = self._resolve_names_to_uuids(template, params["linked_actions"], "linkedActions")
-        linked_errorfiles_uuids = self._resolve_names_to_uuids(template, params["linked_errorfiles"], "linkedErrorfiles")
+        linked_errorfiles_uuids = self._resolve_names_to_uuids(
+            template, params["linked_errorfiles"], "linkedErrorfiles")
 
         return {
             "enabled": str(int(params["enabled"])),
