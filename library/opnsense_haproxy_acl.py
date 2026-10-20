@@ -2,376 +2,672 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
-from __future__ import absolute_import, division, print_function
+"""Manage HAProxy ACLs (Conditions) on OPNsense."""
 
-DOCUMENTATION =r'''
+DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_acl
-short_description: Manage HAProxy acls on Opnsense
-'''
+short_description: Manage HAProxy ACLs on OPNsense
+description:
+  - Creates, updates, or deletes HAProxy ACLs (conditions) via the OPNsense API.
+author:
+  - Markus Joosten (@mj84)
+options:
+  name:
+    description:
+      - The name of the ACL (must be unique).
+    type: str
+    required: true
+  expression:
+    description:
+      - The ACL expression type.
+    type: str
+    required: true
+    choices:
+      - http_auth
+      - hdr_beg
+      - hdr_end
+      - hdr
+      - hdr_reg
+      - hdr_sub
+      - path_beg
+      - path_end
+      - path
+      - path_reg
+      - path_dir
+      - path_sub
+      - url_param
+      - ssl_c_verify
+      - ssl_c_verify_code
+      - ssl_c_ca_commonname
+      - src
+      - src_is_local
+      - src_port
+      - src_bytes_in_rate
+      - src_bytes_out_rate
+      - src_kbytes_in
+      - src_kbytes_out
+      - src_conn_cnt
+      - src_conn_cur
+      - src_conn_rate
+      - src_http_err_cnt
+      - src_http_err_rate
+      - src_http_req_cnt
+      - src_http_req_rate
+      - src_sess_rate
+      - nbsrv
+      - traffic_is_http
+      - traffic_is_ssl
+      - ssl_fc
+      - ssl_fc_sni
+      - ssl_sni
+      - ssl_sni_sub
+      - ssl_sni_beg
+      - ssl_sni_end
+      - ssl_sni_reg
+      - custom_acl
+  negate:
+    description:
+      - Negate the ACL expression.
+    type: bool
+    default: false
+  hdr_beg:
+    description:
+      - Header begin value (used with hdr_beg expression).
+    type: str
+    default: ""
+  hdr_end:
+    description:
+      - Header end value (used with hdr_end expression).
+    type: str
+    default: ""
+  hdr:
+    description:
+      - Header name (used with hdr expression).
+    type: str
+    default: ""
+  hdr_reg:
+    description:
+      - Header regex (used with hdr_reg expression).
+    type: str
+    default: ""
+  hdr_sub:
+    description:
+      - Header substring (used with hdr_sub expression).
+    type: str
+    default: ""
+  path_beg:
+    description:
+      - Path begin value.
+    type: str
+    default: ""
+  path_end:
+    description:
+      - Path end value.
+    type: str
+    default: ""
+  path:
+    description:
+      - Exact path value.
+    type: str
+    default: ""
+  path_reg:
+    description:
+      - Path regex.
+    type: str
+    default: ""
+  path_dir:
+    description:
+      - Path directory value.
+    type: str
+    default: ""
+  path_sub:
+    description:
+      - Path substring value.
+    type: str
+    default: ""
+  url_param:
+    description:
+      - URL parameter name.
+    type: str
+    default: ""
+  url_param_value:
+    description:
+      - URL parameter value.
+    type: str
+    default: ""
+  ssl_c_verify_code:
+    description:
+      - SSL client verify code.
+    type: str
+    default: ""
+  ssl_c_ca_commonname:
+    description:
+      - SSL CA common name.
+    type: str
+    default: ""
+  src:
+    description:
+      - Source address/value.
+    type: str
+    default: ""
+  src_bytes_in_rate_comparison:
+    description:
+      - Comparison operator for src_bytes_in_rate.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_bytes_in_rate:
+    description:
+      - Bytes in rate value.
+    type: str
+    default: ""
+  src_bytes_out_rate_comparison:
+    description:
+      - Comparison operator for src_bytes_out_rate.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_bytes_out_rate:
+    description:
+      - Bytes out rate value.
+    type: str
+    default: ""
+  src_conn_cnt_comparison:
+    description:
+      - Comparison operator for src_conn_cnt.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_conn_cnt:
+    description:
+      - Connection count value.
+    type: str
+    default: ""
+  src_conn_rate_comparison:
+    description:
+      - Comparison operator for src_conn_rate.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_conn_rate:
+    description:
+      - Connection rate value.
+    type: str
+    default: ""
+  src_http_err_cnt_comparison:
+    description:
+      - Comparison operator for src_http_err_cnt.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_http_err_cnt:
+    description:
+      - HTTP error count value.
+    type: str
+    default: ""
+  src_http_err_rate_comparison:
+    description:
+      - Comparison operator for src_http_err_rate.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_http_err_rate:
+    description:
+      - HTTP error rate value.
+    type: str
+    default: ""
+  src_http_req_rate_comparison:
+    description:
+      - Comparison operator for src_http_req_rate.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_http_req_rate:
+    description:
+      - HTTP request rate value.
+    type: str
+    default: ""
+  src_kbytes_in_comparison:
+    description:
+      - Comparison operator for src_kbytes_in.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_kbytes_in:
+    description:
+      - Kbytes in value.
+    type: str
+    default: ""
+  src_kbytes_out_comparison:
+    description:
+      - Comparison operator for src_kbytes_out.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_kbytes_out:
+    description:
+      - Kbytes out value.
+    type: str
+    default: ""
+  src_port_comparison:
+    description:
+      - Comparison operator for src_port.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_port:
+    description:
+      - Source port value.
+    type: str
+    default: ""
+  src_sess_cnt_comparison:
+    description:
+      - Comparison operator for src_sess_cnt.
+    type: str
+    choices: ["", "gt", "ge", "eq", "lt", "le"]
+    default: "gt"
+  src_sess_cnt:
+    description:
+      - Session count value.
+    type: str
+    default: ""
+  nbsrv:
+    description:
+      - Number of servers threshold.
+    type: str
+    default: ""
+  nbsrv_backend:
+    description:
+      - Backend name for nbsrv ACLs.
+    type: str
+    default: ""
+  ssl_fc_sni:
+    description:
+      - SSL FC SNI value.
+    type: str
+    default: ""
+  ssl_sni:
+    description:
+      - SNI value.
+    type: str
+    default: ""
+  ssl_sni_sub:
+    description:
+      - SNI substring value.
+    type: str
+    default: ""
+  ssl_sni_beg:
+    description:
+      - SNI begin value.
+    type: str
+    default: ""
+  ssl_sni_end:
+    description:
+      - SNI end value.
+    type: str
+    default: ""
+  ssl_sni_reg:
+    description:
+      - SNI regex value.
+    type: str
+    default: ""
+  custom_acl:
+    description:
+      - Custom ACL expression.
+    type: str
+    default: ""
+  value:
+    description:
+      - The ACL value.
+    type: str
+    default: ""
+  query_backend:
+    description:
+      - Backend for query-based ACLs.
+    type: str
+    default: ""
+  allowed_users:
+    description:
+      - List of users allowed by this ACL.
+    type: list
+    elements: str
+    default: []
+  allowed_groups:
+    description:
+      - List of groups allowed by this ACL.
+    type: list
+    elements: str
+    default: []
+  state:
+    description:
+      - Whether the ACL should exist or not.
+    type: str
+    choices: [present, absent]
+    default: present
+  api_url:
+    description:
+      - The URL of the OPNsense firewall API.
+    type: str
+    required: true
+  api_key:
+    description:
+      - The API key for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_secret:
+    description:
+      - The API secret for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_ssl_verify:
+    description:
+      - Whether to verify the SSL certificate of the OPNsense API.
+    type: bool
+    default: false
+  haproxy_reload:
+    description:
+      - Whether to reload HAProxy configuration after changes.
+    type: bool
+    default: false
+seealso:
+  - module: opnsense_haproxy_action
+  - module: opnsense_haproxy_frontend
+"""
 
-from ansible.module_utils.opnsense_utils import OpnsenseApi
+EXAMPLES = r"""
+- name: Create an ACL
+  opnsense_haproxy_acl:
+    name: api_path
+    expression: path_beg
+    value: /api
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-from ansible.module_utils.basic import AnsibleModule
+- name: Create an ACL with allowed users
+  opnsense_haproxy_acl:
+    name: internal_acl
+    expression: hdr_beg
+    hdr: Host
+    value: internal.local
+    allowed_users: [admin, operator]
+    allowed_groups: [admins]
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-# There will only be a single AnsibleModule object per module
-module = None
+- name: Delete an ACL
+  opnsense_haproxy_acl:
+    name: api_path
+    state: absent
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
+"""
+
+RETURN = r"""
+msg:
+  description: Status message describing the action taken.
+  type: str
+  returned: always
+changed:
+  description: Whether the state was changed.
+  type: bool
+  returned: always
+"""
+
+from __future__ import absolute_import, division, print_function
+
+from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
+
+
+class AclModule(OpnsenseHaproxyModule):
+    """Module for managing HAProxy ACLs."""
+
+    OBJECT_TYPE = "acl"
+    ARGUMENT_SPEC = {
+        "name": dict(type="str", required=True),
+        "expression": dict(
+            type="str",
+            required=True,
+            choices=[
+                "http_auth", "hdr_beg", "hdr_end", "hdr", "hdr_reg", "hdr_sub",
+                "path_beg", "path_end", "path", "path_reg", "path_dir", "path_sub",
+                "url_param", "ssl_c_verify", "ssl_c_verify_code", "ssl_c_ca_commonname",
+                "src", "src_is_local", "src_port",
+                "src_bytes_in_rate", "src_bytes_out_rate",
+                "src_kbytes_in", "src_kbytes_out",
+                "src_conn_cnt", "src_conn_cur", "src_conn_rate",
+                "src_http_err_cnt", "src_http_err_rate",
+                "src_http_req_cnt", "src_http_req_rate",
+                "src_sess_rate", "nbsrv",
+                "traffic_is_http", "traffic_is_ssl",
+                "ssl_fc", "ssl_fc_sni",
+                "ssl_sni", "ssl_sni_sub", "ssl_sni_beg", "ssl_sni_end", "ssl_sni_reg",
+                "custom_acl",
+            ],
+        ),
+        "negate": dict(type="bool", default=False),
+        "hdr_beg": dict(type="str", default=""),
+        "hdr_end": dict(type="str", default=""),
+        "hdr": dict(type="str", default=""),
+        "hdr_reg": dict(type="str", default=""),
+        "hdr_sub": dict(type="str", default=""),
+        "path_beg": dict(type="str", default=""),
+        "path_end": dict(type="str", default=""),
+        "path": dict(type="str", default=""),
+        "path_reg": dict(type="str", default=""),
+        "path_dir": dict(type="str", default=""),
+        "path_sub": dict(type="str", default=""),
+        "url_param": dict(type="str", default=""),
+        "url_param_value": dict(type="str", default=""),
+        "ssl_c_verify_code": dict(type="str", default=""),
+        "ssl_c_ca_commonname": dict(type="str", default=""),
+        "src": dict(type="str", default=""),
+        "src_bytes_in_rate_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_bytes_in_rate": dict(type="str", default=""),
+        "src_bytes_out_rate_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_bytes_out_rate": dict(type="str", default=""),
+        "src_conn_cnt_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_conn_cnt": dict(type="str", default=""),
+        "src_conn_rate_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_conn_rate": dict(type="str", default=""),
+        "src_http_err_cnt_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_http_err_cnt": dict(type="str", default=""),
+        "src_http_err_rate_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_http_err_rate": dict(type="str", default=""),
+        "src_http_req_rate_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_http_req_rate": dict(type="str", default=""),
+        "src_kbytes_in_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_kbytes_in": dict(type="str", default=""),
+        "src_kbytes_out_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_kbytes_out": dict(type="str", default=""),
+        "src_port_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_port": dict(type="str", default=""),
+        "src_sess_cnt_comparison": dict(
+            type="str", choices=["", "gt", "ge", "eq", "lt", "le"], default="gt"
+        ),
+        "src_sess_cnt": dict(type="str", default=""),
+        "nbsrv": dict(type="str", default=""),
+        "nbsrv_backend": dict(type="str", default=""),
+        "ssl_fc_sni": dict(type="str", default=""),
+        "ssl_sni": dict(type="str", default=""),
+        "ssl_sni_sub": dict(type="str", default=""),
+        "ssl_sni_beg": dict(type="str", default=""),
+        "ssl_sni_end": dict(type="str", default=""),
+        "ssl_sni_reg": dict(type="str", default=""),
+        "custom_acl": dict(type="str", default=""),
+        "value": dict(type="str", default=""),
+        "query_backend": dict(type="str", default=""),
+        "allowed_users": dict(type="list", elements="str", default=[]),
+        "allowed_groups": dict(type="list", elements="str", default=[]),
+    }
+
+    def _build_desired_state(self):
+        params = self.module.params
+        # Resolve reference UUIDs
+        template = self.api.getObjectByUuid(self.OBJECT_TYPE, "")
+        nbsrv_backend_uuid = self._resolve_name_to_uuid(template, params["nbsrv_backend"], "nbsrv_backend")
+        query_backend_uuid = self._resolve_name_to_uuid(template, params["query_backend"], "queryBackend")
+        allowed_users_uuids = self._resolve_names_to_uuids(template, params["allowed_users"], "allowedUsers")
+        allowed_groups_uuids = self._resolve_names_to_uuids(template, params["allowed_groups"], "allowedGroups")
+
+        return {
+            "description": params.get("description", ""),
+            "expression": params["expression"],
+            "negate": str(int(params["negate"])),
+            "hdr_beg": params["hdr_beg"],
+            "hdr_end": params["hdr_end"],
+            "hdr": params["hdr"],
+            "hdr_reg": params["hdr_reg"],
+            "hdr_sub": params["hdr_sub"],
+            "path_beg": params["path_beg"],
+            "path_end": params["path_end"],
+            "path": params["path"],
+            "path_reg": params["path_reg"],
+            "path_dir": params["path_dir"],
+            "path_sub": params["path_sub"],
+            "url_param": params["url_param"],
+            "url_param_value": params["url_param_value"],
+            "ssl_c_verify_code": params["ssl_c_verify_code"],
+            "ssl_c_ca_commonname": params["ssl_c_ca_commonname"],
+            "src": params["src"],
+            "src_bytes_in_rate_comparison": params["src_bytes_in_rate_comparison"],
+            "src_bytes_in_rate": params["src_bytes_in_rate"],
+            "src_bytes_out_rate_comparison": params["src_bytes_out_rate_comparison"],
+            "src_bytes_out_rate": params["src_bytes_out_rate"],
+            "src_conn_cnt_comparison": params["src_conn_cnt_comparison"],
+            "src_conn_cnt": params["src_conn_cnt"],
+            "src_conn_rate_comparison": params["src_conn_rate_comparison"],
+            "src_conn_rate": params["src_conn_rate"],
+            "src_http_err_cnt_comparison": params["src_http_err_cnt_comparison"],
+            "src_http_err_cnt": params["src_http_err_cnt"],
+            "src_http_err_rate_comparison": params["src_http_err_rate_comparison"],
+            "src_http_err_rate": params["src_http_err_rate"],
+            "src_http_req_rate_comparison": params["src_http_req_rate_comparison"],
+            "src_http_req_rate": params["src_http_req_rate"],
+            "src_kbytes_in_comparison": params["src_kbytes_in_comparison"],
+            "src_kbytes_in": params["src_kbytes_in"],
+            "src_kbytes_out_comparison": params["src_kbytes_out_comparison"],
+            "src_kbytes_out": params["src_kbytes_out"],
+            "src_port_comparison": params["src_port_comparison"],
+            "src_port": params["src_port"],
+            "src_sess_cnt_comparison": params["src_sess_cnt_comparison"],
+            "src_sess_cnt": params["src_sess_cnt"],
+            "nbsrv": params["nbsrv"],
+            "nbsrv_backend": nbsrv_backend_uuid,
+            "ssl_fc_sni": params["ssl_fc_sni"],
+            "ssl_sni": params["ssl_sni"],
+            "ssl_sni_sub": params["ssl_sni_sub"],
+            "ssl_sni_beg": params["ssl_sni_beg"],
+            "ssl_sni_end": params["ssl_sni_end"],
+            "ssl_sni_reg": params["ssl_sni_reg"],
+            "custom_acl": params["custom_acl"],
+            "value": params["value"],
+            "queryBackend": query_backend_uuid,
+            "allowedUsers": ",".join(allowed_users_uuids),
+            "allowedGroups": ",".join(allowed_groups_uuids),
+        }
+
+    def _diff_state(self, current, desired):
+        """Custom diff for ACL — handles selection fields and reference list comparisons."""
+        changes = {}
+        messages = []
+        needs_change = False
+        params = self.module.params
+
+        selection_fields = ["expression"]
+        comparison_fields = [
+            "src_bytes_in_rate_comparison", "src_bytes_out_rate_comparison",
+            "src_conn_cnt_comparison", "src_conn_rate_comparison",
+            "src_http_err_cnt_comparison", "src_http_err_rate_comparison",
+            "src_http_req_rate_comparison", "src_kbytes_in_comparison",
+            "src_kbytes_out_comparison", "src_port_comparison",
+            "src_sess_cnt_comparison",
+        ]
+        reference_fields = {
+            "nbsrv_backend": ("nbsrv_backend", "nbsrv_backend"),
+            "queryBackend": ("query_backend", "queryBackend"),
+            "allowedUsers": ("allowed_users", "allowedUsers"),
+            "allowedGroups": ("allowed_groups", "allowedGroups"),
+        }
+
+        for prop, desired_value in desired.items():
+            current_value = current.get(prop)
+
+            if prop == "name":
+                continue
+
+            # Selection fields
+            if prop in selection_fields:
+                selected = self.api.getSelected(current_value)
+                if selected != desired_value:
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
+            # Comparison fields
+            elif prop in comparison_fields:
+                selected = self.api.getSelected(current_value)
+                if selected != desired_value:
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
+            # Reference fields (UUID lists)
+            elif prop in reference_fields:
+                param_name, template_key = reference_fields[prop]
+                if param_name.endswith("_users") or param_name.endswith("_groups"):
+                    current_list = self.api.getSelectedList(current_value)
+                    if not self.api.compareLists(current_list, params[param_name]):
+                        needs_change = True
+                        changes[prop] = desired_value
+                        messages.append("Changing %s: %s => %s" % (prop, current_list, params[param_name]))
+                elif param_name in ("nbsrv_backend", "query_backend"):
+                    current_ref = self.api.getSelected(current_value)
+                    if current_ref != params[param_name]:
+                        needs_change = True
+                        changes[prop] = desired_value
+                        messages.append("Changing %s: %s => %s" % (prop, current_ref, params[param_name]))
+            # Simple fields
+            elif current_value != desired_value:
+                needs_change = True
+                changes[prop] = desired_value
+                messages.append("Changing %s: %s => %s" % (prop, current_value, desired_value))
+
+        return needs_change, changes, messages
 
 
 def main():
-
-    global module
-    # Instantiate module
-    module = AnsibleModule(
-        argument_spec=dict(
-            api_url=dict(type='str', required=True),
-            api_key=dict(type='str', required=True, no_log=True),
-            api_secret=dict(type='str', required=True, no_log=True),
-            api_ssl_verify=dict(type='bool', default=False),
-            acl_state=dict(type='str', choices=['present', 'absent'], default='present'),
-            acl_name=dict(type='str', required=True),
-            acl_description=dict(type='str', default=''),
-            acl_expression=dict(type='str',
-                choices=[
-                    'http_auth',
-                    'hdr_beg',
-                    'hdr_end',
-                    'hdr',
-                    'hdr_reg',
-                    'hdr_sub',
-                    'path_beg',
-                    'path_end',
-                    'path',
-                    'path_reg',
-                    'path_dir',
-                    'path_sub',
-                    'url_param',
-                    'ssl_c_verify',
-                    'ssl_c_verify_code',
-                    'ssl_c_ca_commonname',
-                    'src',
-                    'src_is_local',
-                    'src_port',
-                    'src_bytes_in_rate',
-                    'src_bytes_out_rate',
-                    'src_kbytes_in',
-                    'src_kbytes_out',
-                    'src_conn_cnt',
-                    'src_conn_cur',
-                    'src_conn_rate',
-                    'src_http_err_cnt',
-                    'src_http_err_rate',
-                    'src_http_req_cnt',
-                    'src_http_req_rate',
-                    'src_sess_rate',
-                    'nbsrv',
-                    'traffic_is_http',
-                    'traffic_is_ssl',
-                    'ssl_fc',
-                    'ssl_fc_sni',
-                    'ssl_sni',
-                    'ssl_sni_sub',
-                    'ssl_sni_beg',
-                    'ssl_sni_end',
-                    'ssl_sni_reg',
-                    'custom_acl'
-                ], required=True),
-            acl_negate=dict(type='bool', default=False),
-            acl_hdr_beg=dict(type='str', default=''),
-            acl_hdr_end=dict(type='str', default=''),
-            acl_hdr=dict(type='str', default=''),
-            acl_hdr_reg=dict(type='str', default=''),
-            acl_hdr_sub=dict(type='str', default=''),
-            acl_path_beg=dict(type='str', default=''),
-            acl_path_end=dict(type='str', default=''),
-            acl_path=dict(type='str', default=''),
-            acl_path_reg=dict(type='str', default=''),
-            acl_path_dir=dict(type='str', default=''),
-            acl_path_sub=dict(type='str', default=''),
-            acl_url_param=dict(type='str', default=''),
-            acl_url_param_value=dict(type='str', default=''),
-            acl_ssl_c_verify_code=dict(type='str', default=''),
-            acl_ssl_c_ca_commonname=dict(type='str', default=''),
-            acl_src=dict(type='str', default=''),
-            acl_src_bytes_in_rate_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_bytes_in_rate=dict(type='str', default=''),
-            acl_src_bytes_out_rate_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_bytes_out_rate=dict(type='str', default=''),
-            acl_src_conn_cnt_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_conn_cnt=dict(type='str', default=''),
-            acl_src_conn_rate_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_conn_rate=dict(type='str', default=''),
-            acl_src_http_err_cnt_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_http_err_cnt=dict(type='str', default=''),
-            acl_src_http_err_rate_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_http_err_rate=dict(type='str', default=''),
-            acl_src_http_req_rate_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_http_req_rate=dict(type='str', default=''),
-            acl_src_kbytes_in_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_kbytes_in=dict(type='str', default=''),
-            acl_src_kbytes_out_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_kbytes_out=dict(type='str', default=''),
-            acl_src_port_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_port=dict(type='str', default=''),
-            acl_src_sess_cnt_comparison=dict(type='str', choices=['', 'gt', 'ge', 'eq', 'lt', 'le'], default='gt'),
-            acl_src_sess_cnt=dict(type='str', default=''),
-            acl_nbsrv=dict(type='str', default=''),
-            acl_nbsrv_backend=dict(type='str', default=''),
-            acl_ssl_fc_sni=dict(type='str', default=''),
-            acl_ssl_sni=dict(type='str', default=''),
-            acl_ssl_sni_sub=dict(type='str', default=''),
-            acl_ssl_sni_beg=dict(type='str', default=''),
-            acl_ssl_sni_end=dict(type='str', default=''),
-            acl_ssl_sni_reg=dict(type='str', default=''),
-            acl_custom_acl=dict(type='str', default=''),
-            acl_value=dict(type='str', default=''),
-            acl_query_backend=dict(type='str', default=''),
-            acl_allowed_users=dict(type='list', default=[]),
-            acl_allowed_groups=dict(type='list', default=[]),
-            haproxy_reload=dict(type='bool', default=False),
-        ),
-        supports_check_mode=True,
-    )
-    # Instantiate API connection
-    api_url = module.params['api_url']
-    api_auth = (module.params['api_key'], module.params['api_secret'])
-    api_ssl_verify = module.params['api_ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(api_url, api_auth, api_ssl_verify)
-
-    # Prepare properties of acl
-    haproxy_reload = module.params['haproxy_reload']
-    acl_state = module.params['acl_state']
-    acl_name = module.params['acl_name']
-    acl_description = module.params['acl_description']
-    acl_expression = module.params['acl_expression']
-    acl_negate = module.params['acl_negate']
-    acl_hdr_beg = module.params['acl_hdr_beg']
-    acl_hdr_end = module.params['acl_hdr_end']
-    acl_hdr = module.params['acl_hdr']
-    acl_hdr_reg = module.params['acl_hdr_reg']
-    acl_hdr_sub = module.params['acl_hdr_sub']
-    acl_path_beg = module.params['acl_path_beg']
-    acl_path_end = module.params['acl_path_end']
-    acl_path = module.params['acl_path']
-    acl_path_reg = module.params['acl_path_reg']
-    acl_path_dir = module.params['acl_path_dir']
-    acl_path_sub = module.params['acl_path_sub']
-    acl_url_param = module.params['acl_url_param']
-    acl_url_param_value = module.params['acl_url_param_value']
-    acl_ssl_c_verify_code = module.params['acl_ssl_c_verify_code']
-    acl_ssl_c_ca_commonname = module.params['acl_ssl_c_ca_commonname']
-    acl_src = module.params['acl_src']
-    acl_src_bytes_in_rate_comparison = module.params['acl_src_bytes_in_rate_comparison']
-    acl_src_bytes_in_rate = module.params['acl_src_bytes_in_rate']
-    acl_src_bytes_out_rate_comparison = module.params['acl_src_bytes_out_rate_comparison']
-    acl_src_bytes_out_rate = module.params['acl_src_bytes_out_rate']
-    acl_src_conn_cnt_comparison = module.params['acl_src_conn_cnt_comparison']
-    acl_src_conn_cnt = module.params['acl_src_conn_cnt']
-    acl_src_conn_rate_comparison = module.params['acl_src_conn_rate_comparison']
-    acl_src_conn_rate = module.params['acl_src_conn_rate']
-    acl_src_http_err_cnt_comparison = module.params['acl_src_http_err_cnt_comparison']
-    acl_src_http_err_cnt = module.params['acl_src_http_err_cnt']
-    acl_src_http_err_rate_comparison = module.params['acl_src_http_err_rate_comparison']
-    acl_src_http_err_rate = module.params['acl_src_http_err_rate']
-    acl_src_http_req_rate_comparison = module.params['acl_src_http_req_rate_comparison']
-    acl_src_http_req_rate = module.params['acl_src_http_req_rate']
-    acl_src_kbytes_in_comparison = module.params['acl_src_kbytes_in_comparison']
-    acl_src_kbytes_in = module.params['acl_src_kbytes_in']
-    acl_src_kbytes_out_comparison = module.params['acl_src_kbytes_out_comparison']
-    acl_src_kbytes_out = module.params['acl_src_kbytes_out']
-    acl_src_port_comparison = module.params['acl_src_port_comparison']
-    acl_src_port = module.params['acl_src_port']
-    acl_src_sess_cnt_comparison = module.params['acl_src_sess_cnt_comparison']
-    acl_src_sess_cnt = module.params['acl_src_sess_cnt']
-    acl_nbsrv = module.params['acl_nbsrv']
-    acl_nbsrv_backend = module.params['acl_nbsrv_backend']
-    acl_ssl_fc_sni = module.params['acl_ssl_fc_sni']
-    acl_ssl_sni = module.params['acl_ssl_sni']
-    acl_ssl_sni_sub = module.params['acl_ssl_sni_sub']
-    acl_ssl_sni_beg = module.params['acl_ssl_sni_beg']
-    acl_ssl_sni_end = module.params['acl_ssl_sni_end']
-    acl_ssl_sni_reg = module.params['acl_ssl_sni_reg']
-    acl_custom_acl = module.params['acl_custom_acl']
-    acl_value = module.params['acl_value']
-    acl_query_backend = module.params['acl_query_backend']
-    acl_allowed_users = module.params['acl_allowed_users']
-    acl_allowed_groups = module.params['acl_allowed_groups']
-
-    # Get empty ACL object to lookup UUIDs for allowedUsers, allowedGroups, nbsrv_backend, queryBackend
-    empty_acl = apiconnection.getObjectByUuid('acl', '')
-    #acl_nbsrv_backend = apiconnection.getUuidByName('backend', module.params['acl_nbsrv_backend'])
-    acl_nbsrv_backend_uuid = ''
-    if acl_nbsrv_backend != '':
-        for key,value in empty_acl['nbsrv_backend'].iteritems():
-            if value['value'] == acl_nbsrv_backend:
-                acl_nbsrv_backend_uuid = key
-    #acl_query_backend = apiconnection.getUuidByName('backend', module.params['acl_query_backend'])
-    acl_query_backend_uuid = ''
-    if acl_query_backend != '':
-        for key,value in empty_acl['queryBackend'].iteritems():
-            if value['value'] == acl_query_backend:
-                acl_query_backend_uuid = key
-    # Resolve UUIDs for users
-    acl_allowed_users_uuids = []
-    for acl_allowed_user in acl_allowed_users:
-        #acl_allowed_users_uuids.append(apiconnection.getUuidByName('user', acl_allowed_user))
-        for key,value in empty_acl['allowedUsers'].iteritems():
-            if value['value'] == acl_allowed_user:
-                acl_allowed_users_uuids.append(key)
-    # Resolve UUIDs for allowedGroups
-    acl_allowed_groups_uuids = []
-    for acl_allowed_group in acl_allowed_groups:
-        #acl_allowed_groups_uuids.append(apiconnection.getUuidByName('group', acl_allowed_group))
-        for key,value in empty_acl['allowedGroups'].iteritems():
-            if value['value'] == acl_allowed_group:
-                acl_allowed_groups_uuids.append(key)
-
-    # Fetch list of acls
-    acls = apiconnection.listObjects('acl')
-
-    # Build dict with desired state
-    desired_properties = {
-        'description': acl_description,
-        'expression': acl_expression,
-        'negate': str(int(acl_negate)),
-        'hdr_beg': acl_hdr_beg,
-        'hdr_end': acl_hdr_end,
-        'hdr': acl_hdr,
-        'hdr_reg': acl_hdr_beg,
-        'hdr_sub': acl_hdr_sub,
-        'path_beg': acl_path_beg,
-        'path_end': acl_path_end,
-        'path': acl_path,
-        'path_reg': acl_path_reg,
-        'path_dir': acl_path_dir,
-        'path_sub': acl_path_sub,
-        'url_param': acl_url_param,
-        'url_param_value': acl_url_param_value,
-        'ssl_c_verify_code': acl_ssl_c_verify_code,
-        'ssl_c_ca_commonname': acl_ssl_c_ca_commonname,
-        'src': acl_src,
-        'src_bytes_in_rate_comparison': acl_src_bytes_in_rate_comparison,
-        'src_bytes_in_rate': acl_src_bytes_in_rate,
-        'src_bytes_out_rate_comparison': acl_src_bytes_out_rate_comparison,
-        'src_bytes_out_rate': acl_src_bytes_out_rate,
-        'src_conn_cnt_comparison': acl_src_conn_cnt_comparison,
-        'src_conn_cnt': acl_src_conn_cnt,
-        'src_conn_rate_comparison': acl_src_conn_rate_comparison,
-        'src_conn_rate': acl_src_conn_rate,
-        'src_http_err_cnt_comparison': acl_src_http_err_cnt_comparison,
-        'src_http_err_cnt': acl_src_http_err_cnt,
-        'src_http_err_rate_comparison': acl_src_http_err_rate_comparison,
-        'src_http_err_rate': acl_src_http_err_rate,
-        'src_http_req_rate_comparison':  acl_src_http_req_rate_comparison,
-        'src_http_req_rate': acl_src_http_req_rate,
-        'src_kbytes_in_comparison': acl_src_kbytes_in_comparison,
-        'src_kbytes_in': acl_src_kbytes_in,
-        'src_kbytes_out_comparison': acl_src_kbytes_out_comparison,
-        'src_kbytes_out': acl_src_kbytes_out,
-        'src_port_comparison': acl_src_port_comparison,
-        'src_port': acl_src_port,
-        'src_sess_cnt_comparison': acl_src_sess_cnt_comparison,
-        'src_sess_cnt': acl_src_sess_cnt,
-        'nbsrv': acl_nbsrv,
-        'nbsrv_backend': acl_nbsrv_backend_uuid,
-        'ssl_fc_sni': acl_ssl_fc_sni,
-        'ssl_sni': acl_ssl_sni,
-        'ssl_sni_sub': acl_ssl_sni_sub,
-        'ssl_sni_beg': acl_ssl_sni_beg,
-        'ssl_sni_end': acl_ssl_sni_end,
-        'ssl_sni_reg': acl_ssl_sni_reg,
-        'custom_acl': acl_custom_acl,
-        'value': acl_value,
-        'queryBackend': acl_query_backend,
-        'allowedUsers': ','.join(acl_allowed_users_uuids),
-        'allowedGroups': ','.join(acl_allowed_groups_uuids)
-    }
-    # Prepare dict with properties needing change
-    changed_properties = {}
-    # Prepare result dict
-    result = {}
-    additional_msg = []
-    # Initialize some control vars
-    needs_change = False
-    uuid = ''
-    # Check if acl object with specified name exists
-    for acl in acls:
-        if acl['name'] == acl_name:
-            uuid = acl['uuid']
-            break
-    acl_exists = (uuid != '')
-    if acl_state == 'present':
-        if acl_exists:
-            acl = apiconnection.getObjectByName('acl', acl_name)
-            for prop in desired_properties.keys():
-                # Special cases for complex propertierts:
-                if prop == 'expression':
-                    current_expression = apiconnection.getSelected(acl[prop])
-                    if current_expression != acl_expression:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_expression, desired_properties[prop]))
-                # Catch all _comparison properties
-                elif '_comparison' in prop:
-                    current_comparison = apiconnection.getSelected(acl[prop])
-                    if current_comparison != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_comparison, desired_properties[prop]))
-                elif prop == 'nbsrv_backend':
-                    current_nbsrv_backend = apiconnection.getSelected(acl[prop])
-                    if current_nbsrv_backend != acl_nbsrv_backend:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_nbsrv_backend, desired_properties[prop]))
-                elif prop == 'queryBackend':
-                    current_query_backend = apiconnection.getSelected(acl[prop])
-                    if current_query_backend != acl_query_backend:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_query_backend, desired_properties[prop]))
-                elif prop == 'allowedUsers':
-                    current_allowed_users = apiconnection.getSelectedList(acl[prop])
-                    if not apiconnection.compareLists(current_allowed_users, acl_allowed_users_uuids):
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_allowed_users, desired_properties[prop]))
-                elif prop == 'allowedGroups':
-                    current_allowed_groups = apiconnection.getSelectedList(acl[prop])
-                    if not apiconnection.compareLists(current_allowed_groups, acl_allowed_groups_uuids):
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_allowed_groups, desired_properties[prop]))
-                else:
-                    # catch all other properties
-                    if acl[prop] != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, acl[prop], desired_properties[prop]))
-
-            if not needs_change:
-                result = {'changed': False, 'msg': ['Acl already present: %s' %acl_name, additional_msg]}
-            else:
-                if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('acl', acl_name, changed_properties))
-                    if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Acl %s must be changed.' %acl_name, additional_msg]}
-        else:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('acl', acl_name, desired_properties))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Acl %s must be created.' %acl_name, additional_msg]}
+    module = AclModule()
+    state = module.module.params.get("state", "present")
+    if state == "absent":
+        result = module.run_absent()
     else:
-        if acl_exists:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('acl', acl_name))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Acl %s must be deleted.' %acl_name, additional_msg]}
-        else:
-            result = {'changed': False, 'msg': ['Acl %s is not present.' %acl_name]}
-
-    module.exit_json(**result)
+        result = module.run()
+    module.module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,0 +1,11 @@
+---
+profile: production
+skip_list:
+  - yaml[line-length]
+  - yaml[truthy]
+warn_list:
+  - experimental
+  - no-changed-when
+exclude_paths:
+  - tests/molecule/*/molecule.yml
+  - examples/

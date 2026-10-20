@@ -2,390 +2,558 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
-from __future__ import absolute_import, division, print_function
+"""Manage HAProxy backend pools on OPNsense."""
 
-DOCUMENTATION =r'''
+DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_backend
-short_description: Manage HAProxy backends on Opnsense
-'''
+short_description: Manage HAProxy backend pools on OPNsense
+description:
+  - Creates, updates, or deletes HAProxy backend pools via the OPNsense API.
+author:
+  - Markus Joosten (@mj84)
+options:
+  name:
+    description:
+      - The name of the backend (must be unique).
+    type: str
+    required: true
+  enabled:
+    description:
+      - Whether the backend is enabled.
+    type: bool
+    default: true
+  description:
+    description:
+      - A description for the backend.
+    type: str
+    default: ""
+  mode:
+    description:
+      - The backend mode.
+    type: str
+    choices: [http, tcp]
+    default: http
+  algorithm:
+    description:
+      - The load balancing algorithm.
+    type: str
+    choices: [source, roundrobin, static-rr, leastconn, uri]
+    default: source
+  proxy_protocol:
+    description:
+      - Proxy protocol version.
+    type: str
+    choices: ["", "v1", "v2"]
+    default: ""
+  linked_servers:
+    description:
+      - List of server names to include in this backend.
+    type: list
+    elements: str
+    default: []
+  source:
+    description:
+      - Source address for the backend.
+    type: str
+    default: ""
+  health_check_enabled:
+    description:
+      - Enable health checking.
+    type: bool
+    default: true
+  health_check:
+    description:
+      - Healthcheck name to use.
+    type: str
+    default: ""
+  health_check_log_status:
+    description:
+      - Log health check status.
+    type: bool
+    default: false
+  check_interval:
+    description:
+      - Healthcheck interval.
+    type: str
+    default: ""
+  check_down_interval:
+    description:
+      - Interval before marking server as down.
+    type: str
+    default: ""
+  health_check_fall:
+    description:
+      - Number of consecutive failures before marking server as down.
+    type: str
+    default: ""
+  health_check_rise:
+    description:
+      - Number of consecutive successes before marking server as up.
+    type: str
+    default: ""
+  persistence:
+    description:
+      - Session persistence type.
+    type: str
+    choices: ["", "sticktable", "cookie"]
+    default: sticktable
+  persistence_cookie_mode:
+    description:
+      - Cookie persistence mode.
+    type: str
+    choices: [piggyback, new]
+    default: piggyback
+  persistence_cookie_name:
+    description:
+      - Cookie name for persistence.
+    type: str
+    default: SRVCOOKIE
+  persistence_strip_quotes:
+    description:
+      - Strip quotes from cookie values.
+    type: bool
+    default: true
+  stickiness_pattern:
+    description:
+      - Stickiness pattern.
+    type: str
+    choices: ["", "sourceipv4", "sourceipv6", "cookievalue", "rdpcookie"]
+    default: sourceipv4
+  stickiness_data_types:
+    description:
+      - List of stickiness data types.
+    type: list
+    elements: str
+    default: []
+    choices:
+      - conn_cnt
+      - conn_cur
+      - conn_rate
+      - sess_cnt
+      - sess_rate
+      - http_req_cnt
+      - http_req_rate
+      - http_err_cnt
+      - http_err_rate
+      - bytes_in_cnt
+      - bytes_in_rate
+      - bytes_out_cnt
+      - bytes_out_rate
+  stickiness_expire:
+    description:
+      - Stickiness expire time.
+    type: str
+    default: "30m"
+  stickiness_size:
+    description:
+      - Stickiness size limit.
+    type: str
+    default: "50k"
+  stickiness_cookie_name:
+    description:
+      - Cookie name for stickiness.
+    type: str
+    default: ""
+  stickiness_cookie_length:
+    description:
+      - Cookie length for stickiness.
+    type: str
+    default: ""
+  stickiness_conn_rate_period:
+    description:
+      - Connection rate period for stickiness.
+    type: str
+    default: "10s"
+  stickiness_sess_rate_period:
+    description:
+      - Session rate period for stickiness.
+    type: str
+    default: "10s"
+  stickiness_http_req_rate_period:
+    description:
+      - HTTP request rate period for stickiness.
+    type: str
+    default: "10s"
+  stickiness_http_err_rate_period:
+    description:
+      - HTTP error rate period for stickiness.
+    type: str
+    default: "10s"
+  stickiness_bytes_in_rate_period:
+    description:
+      - Bytes in rate period for stickiness.
+    type: str
+    default: "1m"
+  stickiness_bytes_out_rate_period:
+    description:
+      - Bytes out rate period for stickiness.
+    type: str
+    default: "1m"
+  basic_auth_enabled:
+    description:
+      - Enable basic authentication.
+    type: bool
+    default: false
+  basic_auth_users:
+    description:
+      - List of users allowed by basic auth.
+    type: list
+    elements: str
+    default: []
+  basic_auth_groups:
+    description:
+      - List of groups allowed by basic auth.
+    type: list
+    elements: str
+    default: []
+  tuning_timeout_connect:
+    description:
+      - Connect timeout.
+    type: str
+    default: ""
+  tuning_timeout_check:
+    description:
+      - Check timeout.
+    type: str
+    default: ""
+  tuning_timeout_server:
+    description:
+      - Server timeout.
+    type: str
+    default: ""
+  tuning_retries:
+    description:
+      - Number of retries.
+    type: str
+    default: ""
+  custom_options:
+    description:
+      - Custom HAProxy options string.
+    type: str
+    default: ""
+  tuning_default_server:
+    description:
+      - Default server for fallback.
+    type: str
+    default: ""
+  tuning_no_port:
+    description:
+      - Disable port in default server.
+    type: bool
+    default: false
+  tuning_http_reuse:
+    description:
+      - HTTP connection reuse policy.
+    type: str
+    choices: ["", "never", "safe", "aggressive", "always"]
+    default: never
+  linked_actions:
+    description:
+      - List of action names linked to this backend (order-sensitive).
+    type: list
+    elements: str
+    default: []
+  linked_errorfiles:
+    description:
+      - List of errorfile names linked to this backend.
+    type: list
+    elements: str
+    default: []
+  state:
+    description:
+      - Whether the backend should exist or not.
+    type: str
+    choices: [present, absent]
+    default: present
+  api_url:
+    description:
+      - The URL of the OPNsense firewall API.
+    type: str
+    required: true
+  api_key:
+    description:
+      - The API key for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_secret:
+    description:
+      - The API secret for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_ssl_verify:
+    description:
+      - Whether to verify the SSL certificate of the OPNsense API.
+    type: bool
+    default: false
+  haproxy_reload:
+    description:
+      - Whether to reload HAProxy configuration after changes.
+    type: bool
+    default: false
+seealso:
+  - module: opnsense_haproxy_server
+  - module: opnsense_haproxy_healthcheck
+  - module: opnsense_haproxy_action
+  - module: opnsense_haproxy_frontend
+"""
 
-from ansible.module_utils.opnsense_utils import OpnsenseApi
+EXAMPLES = r"""
+- name: Create a backend
+  opnsense_haproxy_backend:
+    name: api_pool
+    mode: http
+    algorithm: roundrobin
+    linked_servers: [web1, web2, web3]
+    health_check: http_check
+    persistence: sticktable
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-from ansible.module_utils.basic import AnsibleModule
+- name: Create a backend with basic auth
+  opnsense_haproxy_backend:
+    name: protected_pool
+    mode: http
+    basic_auth_enabled: true
+    basic_auth_users: [admin]
+    basic_auth_groups: [admins]
+    linked_servers: [web1]
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-# There will only be a single AnsibleModule object per module
-module = None
+- name: Delete a backend
+  opnsense_haproxy_backend:
+    name: api_pool
+    state: absent
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
+"""
+
+RETURN = r"""
+msg:
+  description: Status message describing the action taken.
+  type: str
+  returned: always
+changed:
+  description: Whether the state was changed.
+  type: bool
+  returned: always
+"""
+
+from __future__ import absolute_import, division, print_function
+
+from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
 
 
-def main():
+class BackendModule(OpnsenseHaproxyModule):
+    """Module for managing HAProxy backend pools."""
 
-    global module
-    # Instantiate module
-    module = AnsibleModule(
-        argument_spec=dict(
-            api_url=dict(type='str', required=True),
-            api_key=dict(type='str', required=True, no_log=True),
-            api_secret=dict(type='str', required=True, no_log=True),
-            api_ssl_verify=dict(type='bool', default=False),
-            backend_state=dict(type='str', choices=['present', 'absent'], default='present'),
-            backend_enabled=dict(type='bool', default=True),
-            backend_name=dict(type='str', required=True),
-            backend_description=dict(type='str', default=''),
-            backend_mode=dict(type='str', choices=['http', 'tcp'], default='http'),
-            backend_algorithm=dict(type='str', choices=['source', 'roundrobin', 'static-rr', 'leastconn', 'uri'], default='source'),
-            backend_proxy_protocol=dict(type='str', choices=['', 'v1', 'v2'], default=''),
-            backend_linked_servers=dict(type='list', default=[]),
-            backend_source=dict(type='str', default=''),
-            backend_health_check_enabled=dict(type='bool', default=True),
-            backend_health_check=dict(type='str', default=''),
-            backend_health_check_log_status=dict(type='bool', default=False),
-            backend_check_interval=dict(type='str', default=''),
-            backend_check_down_interval=dict(type='str', default=''),
-            backend_health_check_fall=dict(type='str', default=''),
-            backend_health_check_rise=dict(type='str', default=''),
-            backend_persistence=dict(type='str', choices=['', 'sticktable', 'cookie'], default='sticktable'),
-            backend_persistence_cookie_mode=dict(type='str', choices=['piggyback', 'new'], default='piggyback'),
-            backend_persistence_cookie_name=dict(type='str', default='SRVCOOKIE'),
-            backend_persistence_strip_quotes=dict(type='bool', default=True),
-            backend_stickiness_pattern=dict(type='str', choices=['', 'sourceipv4', 'sourceipv6', 'cookievalue', 'rdpcookie'], default='sourceipv4'),
-            backend_stickiness_data_types=dict(type='list',
-                elements='str',
-                options=dict(
-                    choices=[
-                        'conn_cnt',
-                        'conn_cur',
-                        'conn_rate',
-                        'sess_cnt',
-                        'sess_rate',
-                        'http_req_cnt',
-                        'http_req_rate',
-                        'http_err_cnt',
-                        'http_err_rate',
-                        'bytes_in_cnt',
-                        'bytes_in_rate',
-                        'bytes_out_cnt',
-                        'bytes_out_rate'],
-                ),
-                default=[]),
-            backend_stickiness_expire=dict(type='str', default='30m'),
-            backend_stickiness_size=dict(type='str', default='50k'),
-            backend_stickiness_cookie_name=dict(type='str', default=''),
-            backend_stickiness_cookie_length=dict(type='str', default=''),
-            backend_stickiness_conn_rate_period=dict(type='str', default='10s'),
-            backend_stickiness_sess_rate_period=dict(type='str', default='10s'),
-            backend_stickiness_http_req_rate_period=dict(type='str', default='10s'),
-            backend_stickiness_http_err_rate_period=dict(type='str', default='10s'),
-            backend_stickiness_bytes_in_rate_period=dict(type='str', default='1m'),
-            backend_stickiness_bytes_out_rate_period=dict(type='str', default='1m'),
-            backend_basic_auth_enabled=dict(type='bool', default=False),
-            backend_basic_auth_users=dict(type='list', default=[]),
-            backend_basic_auth_groups=dict(type='list', default=[]),
-            backend_tuning_timeout_connect=dict(type='str', default=''),
-            backend_tuning_timeout_check=dict(type='str', default=''),
-            backend_tuning_timeout_server=dict(type='str', default=''),
-            backend_tuning_retries=dict(type='str', default=''),
-            backend_custom_options=dict(type='str', default=''),
-            backend_tuning_default_server=dict(type='str', default=''),
-            backend_tuning_no_port=dict(type='bool', default=False),
-            backend_tuning_http_reuse=dict(type='str', choices=['', 'never', 'safe', 'aggressive', 'always'], default='never'),
-            backend_linked_actions=dict(type='list', default=[]),
-            backend_linked_errorfiles=dict(type='list', default=[]),
-            haproxy_reload=dict(type='bool', default=False),
+    OBJECT_TYPE = "backend"
+    ARGUMENT_SPEC = {
+        "name": dict(type="str", required=True),
+        "enabled": dict(type="bool", default=True),
+        "description": dict(type="str", default=""),
+        "mode": dict(type="str", choices=["http", "tcp"], default="http"),
+        "algorithm": dict(
+            type="str",
+            choices=["source", "roundrobin", "static-rr", "leastconn", "uri"],
+            default="source",
         ),
-        supports_check_mode=True,
-    )
-    haproxy_reload = module.params['haproxy_reload']
-    # Prepare properties of backend
-    backend_state = module.params['backend_state']
-    backend_enabled = str(int(module.params['backend_enabled']))
-    backend_name = module.params['backend_name']
-    backend_description = module.params['backend_description']
-    backend_mode = module.params['backend_mode']
-    backend_algorithm = module.params['backend_algorithm']
-    backend_proxy_protocol = module.params['backend_proxy_protocol']
-    backend_linked_servers = module.params['backend_linked_servers']
-    backend_source = module.params['backend_source']
-    backend_health_check_enabled = module.params['backend_health_check_enabled']
-    backend_health_check = module.params['backend_health_check']
-    backend_health_check_log_status = module.params['backend_health_check_log_status']
-    backend_check_interval = module.params['backend_check_interval']
-    backend_check_down_interval = module.params['backend_check_down_interval']
-    backend_health_check_fall = module.params['backend_health_check_fall']
-    backend_health_check_rise = module.params['backend_health_check_rise']
-    backend_persistence = module.params['backend_persistence']
-    backend_persistence_cookie_mode = module.params['backend_persistence_cookie_mode']
-    backend_persistence_cookie_name = module.params['backend_persistence_cookie_name']
-    backend_persistence_strip_quotes = module.params['backend_persistence_strip_quotes']
-    backend_stickiness_pattern = module.params['backend_stickiness_pattern']
-    backend_stickiness_data_types = module.params['backend_stickiness_data_types']
-    backend_stickiness_expire = module.params['backend_stickiness_expire']
-    backend_stickiness_size = module.params['backend_stickiness_size']
-    backend_stickiness_cookie_name = module.params['backend_stickiness_cookie_name']
-    backend_stickiness_cookie_length = module.params['backend_stickiness_cookie_length']
-    backend_stickiness_conn_rate_period = module.params['backend_stickiness_conn_rate_period']
-    backend_stickiness_sess_rate_period = module.params['backend_stickiness_sess_rate_period']
-    backend_stickiness_http_req_rate_period = module.params['backend_stickiness_http_req_rate_period']
-    backend_stickiness_http_err_rate_period = module.params['backend_stickiness_http_err_rate_period']
-    backend_stickiness_bytes_in_rate_period = module.params['backend_stickiness_bytes_in_rate_period']
-    backend_stickiness_bytes_out_rate_period = module.params['backend_stickiness_bytes_out_rate_period']
-    backend_basic_auth_enabled = module.params['backend_basic_auth_enabled']
-    backend_basic_auth_users = module.params['backend_basic_auth_users']
-    backend_basic_auth_groups = module.params['backend_basic_auth_groups']
-    backend_tuning_timeout_connect = module.params['backend_tuning_timeout_connect']
-    backend_tuning_timeout_check = module.params['backend_tuning_timeout_check']
-    backend_tuning_timeout_server = module.params['backend_tuning_timeout_server']
-    backend_tuning_retries = module.params['backend_tuning_retries']
-    backend_custom_options = module.params['backend_custom_options']
-    backend_tuning_default_server = module.params['backend_tuning_default_server']
-    backend_tuning_no_port = module.params['backend_tuning_no_port']
-    backend_tuning_http_reuse = module.params['backend_tuning_http_reuse']
-    backend_linked_actions = module.params['backend_linked_actions']
-    backend_linked_errorfiles = module.params['backend_linked_errorfiles']
-
-    # Instantiate API connection
-    api_url = module.params['api_url']
-    api_auth = (module.params['api_key'], module.params['api_secret'])
-    api_ssl_verify = module.params['api_ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(api_url, api_auth, api_ssl_verify)
-
-    # Fetch list of backends
-    backends = apiconnection.listObjects('backend')
-    # Get an empty backend object to lookup UUIDs for:
-    # - linkedServers
-    # - healthCheck
-    # - basicAuthUsers
-    # - basicAuthGroups
-    # - linkedActions
-    # - linkedErrorfiles
-    empty_backend = apiconnection.getObjectByUuid('backend', '')
-    # Need to get UUIDs for:
-    # linkedServers, healthCheck, basicAuthUsers, basicAuthGroups, linkedActions, linkedErrorfiles
-    backend_linked_servers_uuids = []
-    #backend_linked_servers_uuids = apiconnection.getUuidsFromNames('server', backend_linked_servers)
-    for backend_linked_server in backend_linked_servers:
-        for key,value in empty_backend['linkedServers'].iteritems():
-            if value['value'] == backend_linked_server:
-                backend_linked_servers_uuids.append(key)
-    backend_health_check_uuid = ''
-    if backend_health_check != '':
-        #backend_health_check_uuid = apiconnection.getUuidByName('healthcheck', backend_health_check)
-        for key,value in empty_backend['healthCheck'].iteritems():
-            if value['value'] == backend_health_check:
-                backend_health_check_uuid = key
-    #backend_basic_auth_users_uuids = apiconnection.getUuidsFromNames('user', backend_basic_auth_users)
-    backend_basic_auth_users_uuids = []
-    for backend_basic_auth_user in backend_basic_auth_users:
-        for key,value in empty_backend['basicAuthUsers'].iteritems():
-            if value['value'] == backend_basic_auth_user:
-                backend_basic_auth_users_uuids.append(key)
-    #backend_basic_auth_groups_uuids = apiconnection.getUuidsFromNames('group', backend_basic_auth_groups)
-    backend_basic_auth_groups_uuids = []
-    for backend_basic_auth_group in backend_basic_auth_groups:
-        for key,value in empty_backend['basicAuthGroups'].iteritems():
-            if value['value'] == backend_basic_auth_group:
-                backend_basic_auth_groups_uuids.append(key)
-    #backend_linked_actions_uuids = apiconnection.getUuidsFromNames('action', backend_linked_actions)
-    backend_linked_actions_uuids = []
-    for backend_linked_action in backend_linked_actions:
-        for key,value in empty_backend['linkedActions'].iteritems():
-            if value['value'] == backend_linked_action:
-                backend_linked_actions_uuids.append(key)
-    #backend_linked_errorfiles_uuids = apiconnection.getUuidsFromNames('errorfile', backend_linked_errorfiles)
-    backend_linked_errorfiles_uuids = []
-    for backend_linked_errorfile in backend_linked_errorfiles:
-        for key,value in empty_backend['linkedErrorfiles'].iteritems():
-            if value['value'] == backend_linked_errorfile:
-                backend_linked_errorfiles_uuids.append(key)
-    # Build dict with desired state
-    desired_properties = {
-        'enabled': backend_enabled,
-        'description': backend_description,
-        'mode': backend_mode,
-        'algorithm': backend_algorithm,
-        'proxyProtocol': backend_proxy_protocol,
-        'linkedServers': ','.join(backend_linked_servers_uuids),
-        'source': backend_source,
-        'healthCheckEnabled': str(int(backend_health_check_enabled)),
-        'healthCheck': backend_health_check_uuid,
-        'healthCheckLogStatus': str(int(backend_health_check_log_status)),
-        'checkInterval': backend_check_interval,
-        'checkDownInterval': backend_check_down_interval,
-        'healthCheckFall': backend_health_check_fall,
-        'healthCheckRise': backend_health_check_rise,
-        'persistence': backend_persistence,
-        'persistence_cookiemode': backend_persistence_cookie_mode,
-        'persistence_cookiename': backend_persistence_cookie_name,
-        'persistence_stripquotes': str(int(backend_persistence_strip_quotes)),
-        'stickiness_pattern': backend_stickiness_pattern,
-        'stickiness_dataTypes': ','.join(backend_stickiness_data_types),
-        'stickiness_expire': backend_stickiness_expire,
-        'stickiness_size': backend_stickiness_size,
-        'stickiness_cookiename': backend_stickiness_cookie_name,
-        'stickiness_cookielength': backend_stickiness_cookie_length,
-        'stickiness_connRatePeriod': backend_stickiness_conn_rate_period,
-        'stickiness_sessRatePeriod': backend_stickiness_sess_rate_period,
-        'stickiness_httpReqRatePeriod': backend_stickiness_http_req_rate_period,
-        'stickiness_httpErrRatePeriod': backend_stickiness_http_err_rate_period,
-        'stickiness_bytesInRatePeriod': backend_stickiness_bytes_in_rate_period,
-        'stickiness_bytesOutRatePeriod': backend_stickiness_bytes_out_rate_period,
-        'basicAuthEnabled': str(int(backend_basic_auth_enabled)),
-        'basicAuthUsers': ','.join(backend_basic_auth_users_uuids),
-        'basicAuthGroups': ','.join(backend_basic_auth_groups_uuids),
-        'tuning_timeoutConnect': backend_tuning_timeout_connect,
-        'tuning_timeoutCheck': backend_tuning_timeout_check,
-        'tuning_timeoutServer': backend_tuning_timeout_server,
-        'tuning_retries': backend_tuning_retries,
-        'customOptions': backend_custom_options,
-        'tuning_defaultserver': backend_tuning_default_server,
-        'tuning_noport': str(int(backend_tuning_no_port)),
-        'tuning_httpreuse': backend_tuning_http_reuse,
-        'linkedActions': ','.join(backend_linked_actions_uuids),
-        'linkedErrorfiles': ','.join(backend_linked_errorfiles_uuids)
+        "proxy_protocol": dict(type="str", choices=["", "v1", "v2"], default=""),
+        "linked_servers": dict(type="list", elements="str", default=[]),
+        "source": dict(type="str", default=""),
+        "health_check_enabled": dict(type="bool", default=True),
+        "health_check": dict(type="str", default=""),
+        "health_check_log_status": dict(type="bool", default=False),
+        "check_interval": dict(type="str", default=""),
+        "check_down_interval": dict(type="str", default=""),
+        "health_check_fall": dict(type="str", default=""),
+        "health_check_rise": dict(type="str", default=""),
+        "persistence": dict(type="str", choices=["", "sticktable", "cookie"], default="sticktable"),
+        "persistence_cookie_mode": dict(type="str", choices=["piggyback", "new"], default="piggyback"),
+        "persistence_cookie_name": dict(type="str", default="SRVCOOKIE"),
+        "persistence_strip_quotes": dict(type="bool", default=True),
+        "stickiness_pattern": dict(
+            type="str",
+            choices=["", "sourceipv4", "sourceipv6", "cookievalue", "rdpcookie"],
+            default="sourceipv4",
+        ),
+        "stickiness_data_types": dict(
+            type="list",
+            elements="str",
+            choices=[
+                "conn_cnt", "conn_cur", "conn_rate", "sess_cnt", "sess_rate",
+                "http_req_cnt", "http_req_rate", "http_err_cnt", "http_err_rate",
+                "bytes_in_cnt", "bytes_in_rate", "bytes_out_cnt", "bytes_out_rate",
+            ],
+            default=[],
+        ),
+        "stickiness_expire": dict(type="str", default="30m"),
+        "stickiness_size": dict(type="str", default="50k"),
+        "stickiness_cookie_name": dict(type="str", default=""),
+        "stickiness_cookie_length": dict(type="str", default=""),
+        "stickiness_conn_rate_period": dict(type="str", default="10s"),
+        "stickiness_sess_rate_period": dict(type="str", default="10s"),
+        "stickiness_http_req_rate_period": dict(type="str", default="10s"),
+        "stickiness_http_err_rate_period": dict(type="str", default="10s"),
+        "stickiness_bytes_in_rate_period": dict(type="str", default="1m"),
+        "stickiness_bytes_out_rate_period": dict(type="str", default="1m"),
+        "basic_auth_enabled": dict(type="bool", default=False),
+        "basic_auth_users": dict(type="list", elements="str", default=[]),
+        "basic_auth_groups": dict(type="list", elements="str", default=[]),
+        "tuning_timeout_connect": dict(type="str", default=""),
+        "tuning_timeout_check": dict(type="str", default=""),
+        "tuning_timeout_server": dict(type="str", default=""),
+        "tuning_retries": dict(type="str", default=""),
+        "custom_options": dict(type="str", default=""),
+        "tuning_default_server": dict(type="str", default=""),
+        "tuning_no_port": dict(type="bool", default=False),
+        "tuning_http_reuse": dict(
+            type="str", choices=["", "never", "safe", "aggressive", "always"], default="never"
+        ),
+        "linked_actions": dict(type="list", elements="str", default=[]),
+        "linked_errorfiles": dict(type="list", elements="str", default=[]),
     }
-    # Prepare dict with properties needing change
-    changed_properties = {}
-    # Prepare result dict
-    result = {}
-    additional_msg = []
-    # Initialize some control vars
-    needs_change = False
-    uuid = ''
-    # Check if backend object with specified name exists
-    for backend in backends:
-        if backend['name'] == backend_name:
-            uuid = backend['uuid']
-            break
-    backend_exists = (uuid != '')
-    if backend_state == 'present':
-        if backend_exists:
-            backend = apiconnection.getObjectByName('backend', backend_name)
-            for prop in desired_properties.keys():
-                # Special cases for complex propertierts:
-                if prop == 'mode':
-                    current_mode = apiconnection.getSelected(backend[prop])
-                    if current_mode != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_mode, desired_properties[prop]))
-                elif prop == 'algorithm':
-                    current_algorithm = apiconnection.getSelected(backend[prop])
-                    if current_algorithm != backend_algorithm:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_algorithm, desired_properties[prop]))
-                elif prop == 'proxyProtocol':
-                    current_proxy_protocol = apiconnection.getSelected(backend[prop])
-                    if current_proxy_protocol != backend_proxy_protocol:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_proxy_protocol, desired_properties[prop]))
-                elif prop == 'linkedServers':
-                    current_linked_servers = apiconnection.getSelectedList(backend[prop], retval='key')
-                    if not apiconnection.compareLists(current_linked_servers, backend_linked_servers_uuids):
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_linked_servers, desired_properties[prop]))
-                elif prop == 'healthCheck':
-                    current_health_check = apiconnection.getSelected(backend[prop], retval='value')
-                    if current_health_check != backend_health_check:
-                        if current_health_check == 'none' and backend_health_check == '':
+
+    def _build_desired_state(self):
+        params = self.module.params
+        template = self.api.getObjectByUuid(self.OBJECT_TYPE, "")
+
+        # Resolve reference UUIDs
+        linked_servers_uuids = self._resolve_names_to_uuids(template, params["linked_servers"], "linkedServers")
+        health_check_uuid = self._resolve_name_to_uuid(template, params["health_check"], "healthCheck")
+        basic_auth_users_uuids = self._resolve_names_to_uuids(template, params["basic_auth_users"], "basicAuthUsers")
+        basic_auth_groups_uuids = self._resolve_names_to_uuids(template, params["basic_auth_groups"], "basicAuthGroups")
+        linked_actions_uuids = self._resolve_names_to_uuids(template, params["linked_actions"], "linkedActions")
+        linked_errorfiles_uuids = self._resolve_names_to_uuids(template, params["linked_errorfiles"], "linkedErrorfiles")
+
+        return {
+            "enabled": str(int(params["enabled"])),
+            "description": params["description"],
+            "mode": params["mode"],
+            "algorithm": params["algorithm"],
+            "proxyProtocol": params["proxy_protocol"],
+            "linkedServers": ",".join(linked_servers_uuids),
+            "source": params["source"],
+            "healthCheckEnabled": str(int(params["health_check_enabled"])),
+            "healthCheck": health_check_uuid,
+            "healthCheckLogStatus": str(int(params["health_check_log_status"])),
+            "checkInterval": params["check_interval"],
+            "checkDownInterval": params["check_down_interval"],
+            "healthCheckFall": params["health_check_fall"],
+            "healthCheckRise": params["health_check_rise"],
+            "persistence": params["persistence"],
+            "persistence_cookiemode": params["persistence_cookie_mode"],
+            "persistence_cookiename": params["persistence_cookie_name"],
+            "persistence_stripquotes": str(int(params["persistence_strip_quotes"])),
+            "stickiness_pattern": params["stickiness_pattern"],
+            "stickiness_dataTypes": ",".join(params["stickiness_data_types"]),
+            "stickiness_expire": params["stickiness_expire"],
+            "stickiness_size": params["stickiness_size"],
+            "stickiness_cookiename": params["stickiness_cookie_name"],
+            "stickiness_cookielength": params["stickiness_cookie_length"],
+            "stickiness_connRatePeriod": params["stickiness_conn_rate_period"],
+            "stickiness_sessRatePeriod": params["stickiness_sess_rate_period"],
+            "stickiness_httpReqRatePeriod": params["stickiness_http_req_rate_period"],
+            "stickiness_httpErrRatePeriod": params["stickiness_http_err_rate_period"],
+            "stickiness_bytesInRatePeriod": params["stickiness_bytes_in_rate_period"],
+            "stickiness_bytesOutRatePeriod": params["stickiness_bytes_out_rate_period"],
+            "basicAuthEnabled": str(int(params["basic_auth_enabled"])),
+            "basicAuthUsers": ",".join(basic_auth_users_uuids),
+            "basicAuthGroups": ",".join(basic_auth_groups_uuids),
+            "tuning_timeoutConnect": params["tuning_timeout_connect"],
+            "tuning_timeoutCheck": params["tuning_timeout_check"],
+            "tuning_timeoutServer": params["tuning_timeout_server"],
+            "tuning_retries": params["tuning_retries"],
+            "customOptions": params["custom_options"],
+            "tuning_defaultserver": params["tuning_default_server"],
+            "tuning_noport": str(int(params["tuning_no_port"])),
+            "tuning_httpreuse": params["tuning_http_reuse"],
+            "linkedActions": ",".join(linked_actions_uuids),
+            "linkedErrorfiles": ",".join(linked_errorfiles_uuids),
+        }
+
+    def _diff_state(self, current, desired):
+        """Custom diff for backend — handles selection fields and reference list comparisons."""
+        changes = {}
+        messages = []
+        needs_change = False
+        params = self.module.params
+
+        selection_fields = ["mode", "algorithm", "proxyProtocol", "persistence",
+                            "persistence_cookie_mode", "stickiness_pattern", "tuning_http_reuse"]
+        reference_fields = {
+            "linkedServers": ("linked_servers", "linkedServers"),
+            "healthCheck": ("health_check", "healthCheck"),
+            "basicAuthUsers": ("basic_auth_users", "basicAuthUsers"),
+            "basicAuthGroups": ("basic_auth_groups", "basicAuthGroups"),
+            "linkedActions": ("linked_actions", "linkedActions"),
+            "linkedErrorfiles": ("linked_errorfiles", "linkedErrorfiles"),
+        }
+
+        for prop, desired_value in desired.items():
+            current_value = current.get(prop)
+
+            if prop == "name":
+                continue
+
+            # Selection fields
+            if prop in selection_fields:
+                selected = self.api.getSelected(current_value)
+                if selected != desired_value:
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
+            # Reference list fields
+            elif prop in reference_fields:
+                param_name, _ = reference_fields[prop]
+                if prop == "healthCheck":
+                    # Single reference — compare by name
+                    current_ref = self.api.getSelected(current_value, retval="value")
+                    if current_ref != params[param_name]:
+                        if current_ref == "" and params[param_name] == "":
                             pass
                         else:
                             needs_change = True
-                            changed_properties[prop] = desired_properties[prop]
-                            additional_msg.append('Changing %s: %s => %s' %(prop, current_health_check, desired_properties[prop]))
-                elif prop == 'persistence':
-                    current_persistence = apiconnection.getSelected(backend[prop], retval='key')
-                    if current_persistence != backend_persistence:
+                            changes[prop] = desired_value
+                            messages.append("Changing %s: %s => %s" % (prop, current_ref, params[param_name]))
+                elif prop == "linkedActions":
+                    # Order-sensitive comparison
+                    current_list = self.api.getSelectedList(current_value, retval="key")
+                    if not self.api.compareLists(current_list, params[param_name], order_sensitive=True):
                         needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_persistence, desired_properties[prop]))
-                elif prop == 'persistence_cookiemode':
-                    current_persistence_cookie_mode = apiconnection.getSelected(backend[prop], retval='key')
-                    if current_persistence_cookie_mode != backend_persistence_cookie_mode:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_persistence_cookie_mode, desired_properties[prop]))
-                elif prop == 'stickiness_pattern':
-                    current_stickiness_pattern = apiconnection.getSelected(backend[prop])
-                    if current_stickiness_pattern != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_stickiness_pattern, desired_properties[prop]))
-                elif prop == 'stickiness_dataTypes':
-                    current_stickiness_data_types = apiconnection.getSelected(backend[prop])
-                    if not apiconnection.compareLists(current_stickiness_data_types, backend_stickiness_data_types):
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_stickiness_data_types, desired_properties[prop]))
-                elif prop == 'basicAuthUsers':
-                    # only care about basicAuthUsers when basic auth is enabled
-                    if backend_basic_auth_enabled:
-                        current_basic_auth_users = apiconnection.getSelectedList(backend[prop])
-                        if not apiconnection.compareLists(current_basic_auth_users, backend_basic_auth_users):
-                            needs_change = True
-                            changed_properties[prop] = desired_properties[prop]
-                            additional_msg.append('Changing %s: %s => %s' %(prop, current_basic_auth_users, desired_properties[prop]))
-                elif prop == 'basicAuthGroups':
-                    # only care about basicAuthGroups when basic auth is enabled
-                    if backend_basic_auth_enabled:
-                        current_basic_auth_groups = apiconnection.getSelectedList(backend[prop])
-                        if not apiconnection.compareLists(current_basic_auth_groups, backend_basic_auth_groups):
-                            needs_change = True
-                            changed_properties[prop] = desired_properties[prop]
-                            additional_msg.append('Changing %s: %s => %s' %(prop, current_basic_auth_groups, desired_properties[prop]))
-                elif prop == 'tuning_httpreuse':
-                    current_tuning_httpreuse = apiconnection.getSelected(backend[prop])
-                    if current_tuning_httpreuse != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_tuning_httpreuse, desired_properties[prop]))
-                elif prop == 'linkedActions':
-                    current_linked_actions = apiconnection.getSelectedList(backend[prop], retval='key')
-                    if not apiconnection.compareLists(current_linked_actions, backend_linked_actions_uuids, order_sensitive=True):
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_linked_actions, desired_properties[prop]))
-                elif prop == 'linkedErrorfiles':
-                    current_linked_errorfiles = apiconnection.getSelectedList(backend[prop], retval='key')
-                    if not apiconnection.compareLists(current_linked_errorfiles, backend_linked_errorfiles_uuids):
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_linked_errorfiles, desired_properties[prop]))
+                        changes[prop] = desired_value
+                        messages.append("Changing %s: %s => %s" % (prop, current_list, params[param_name]))
                 else:
-                    # catch all other properties
-                    if backend[prop] != desired_properties[prop]:
+                    # List comparison
+                    current_list = self.api.getSelectedList(current_value, retval="key")
+                    if not self.api.compareLists(current_list, params[param_name]):
                         needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, backend[prop], desired_properties[prop]))
+                        changes[prop] = desired_value
+                        messages.append("Changing %s: %s => %s" % (prop, current_list, params[param_name]))
+            # Simple fields
+            elif current_value != desired_value:
+                needs_change = True
+                changes[prop] = desired_value
+                messages.append("Changing %s: %s => %s" % (prop, current_value, desired_value))
 
-            if not needs_change:
-                result = {'changed': False, 'msg': ['Backend already present: %s' %backend_name, additional_msg]}
-            else:
-                if not module.check_mode:
-                    # workaround for https://github.com/opnsense/plugins/issues/1494
-                    # any change must include the linkedActions to maintain the correct order
-                    changed_properties['linkedActions'] = desired_properties['linkedActions']
-                    additional_msg.append(apiconnection.updateObject('backend', backend_name, changed_properties))
-                    if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Backend %s must be changed.' %backend_name, additional_msg]}
-        else:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('backend', backend_name, desired_properties))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Backend %s must be created.' %backend_name, additional_msg]}
+        return needs_change, changes, messages
+
+
+def main():
+    module = BackendModule()
+    state = module.module.params.get("state", "present")
+    if state == "absent":
+        result = module.run_absent()
     else:
-        if backend_exists:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('backend', backend_name))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Backend %s must be deleted.' %backend_name, additional_msg]}
-        else:
-            result = {'changed': False, 'msg': ['Backend %s is not present.' %backend_name]}
-
-    module.exit_json(**result)
+        result = module.run()
+    module.module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -2,107 +2,141 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
+"""Manage HAProxy users on OPNsense."""
+
+DOCUMENTATION = r"""
+---
+module: opnsense_haproxy_user
+short_description: Manage HAProxy users on OPNsense
+description:
+  - Creates, updates, or deletes HAProxy users via the OPNsense API.
+author:
+  - Markus Joosten (@mj84)
+options:
+  name:
+    description:
+      - The username (must be unique).
+    type: str
+    required: true
+  password:
+    description:
+      - The user password.
+    type: str
+    required: false
+    no_log: true
+  enabled:
+    description:
+      - Whether the user is enabled.
+    type: bool
+    default: true
+  description:
+    description:
+      - A description for the user.
+    type: str
+    default: ""
+  state:
+    description:
+      - Whether the user should exist or not.
+    type: str
+    choices: [present, absent]
+    default: present
+  api_url:
+    description:
+      - The URL of the OPNsense firewall API.
+    type: str
+    required: true
+  api_key:
+    description:
+      - The API key for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_secret:
+    description:
+      - The API secret for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_ssl_verify:
+    description:
+      - Whether to verify the SSL certificate of the OPNsense API.
+    type: bool
+    default: false
+  haproxy_reload:
+    description:
+      - Whether to reload HAProxy configuration after changes.
+    type: bool
+    default: false
+seealso:
+  - module: opnsense_haproxy_group
+  - module: opnsense_haproxy_acl
+  - module: opnsense_haproxy_frontend
+"""
+
+EXAMPLES = r"""
+- name: Create a user
+  opnsense_haproxy_user:
+    name: admin
+    password: "secret"
+    enabled: true
+    description: "Administrator"
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
+
+- name: Delete a user
+  opnsense_haproxy_user:
+    name: admin
+    state: absent
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
+"""
+
+RETURN = r"""
+msg:
+  description: Status message describing the action taken.
+  type: str
+  returned: always
+changed:
+  description: Whether the state was changed.
+  type: bool
+  returned: always
+"""
+
 from __future__ import absolute_import, division, print_function
 
-DOCUMENTATION =r'''
----
-module: opnsense_haproxy_users
-short_description: Manage HAProxy users on Opnsense
-'''
+from ansible.module_utils.opnsense_utils import OpnsenseHaproxyModule
 
-from ansible.module_utils.opnsense_utils import OpnsenseApi
 
-from ansible.module_utils.basic import AnsibleModule
+class UserModule(OpnsenseHaproxyModule):
+    """Module for managing HAProxy users."""
 
-# There will only be a single AnsibleModule object per module
-module = None
+    OBJECT_TYPE = "user"
+    ARGUMENT_SPEC = {
+        "name": dict(type="str", required=True),
+        "password": dict(type="str", required=False, no_log=True),
+        "enabled": dict(type="bool", default=True),
+        "description": dict(type="str", default=""),
+    }
+
+    def _build_desired_state(self):
+        return {
+            "password": self.module.params["password"],
+            "enabled": str(int(self.module.params["enabled"])),
+            "description": self.module.params["description"],
+        }
 
 
 def main():
-
-    global module
-    # Instantiate module
-    module = AnsibleModule(
-        argument_spec=dict(
-            api_url=dict(type='str', required=True),
-            api_key=dict(type='str', required=True, no_log=True),
-            api_secret=dict(type='str', required=True, no_log=True),
-            api_ssl_verify=dict(type='bool', default=False),
-            user_name=dict(type='str', required=True),
-            user_password=dict(type='str', default='', no_log=True),
-            user_enabled=dict(type='bool', default=True),
-            user_description=dict(type='str', default=''),
-            user_state=dict(type='str', choices=['present', 'absent'], default='present'),
-            haproxy_reload=dict(type='bool', default=False),
-        ),
-        supports_check_mode=True,
-    )
-    haproxy_reload = module.params['haproxy_reload']
-    # Prepare properties of user
-    user_name = module.params['user_name']
-    user_password = module.params['user_password']
-    user_enabled = str(int(module.params['user_enabled']))
-    user_state = module.params['user_state']
-    user_description = module.params['user_description']
-    # Instantiate API connection
-    api_url = module.params['api_url']
-    auth = (module.params['api_key'], module.params['api_secret'])
-    api_ssl_verify = module.params['api_ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(api_url, auth, api_ssl_verify)
-
-    # Fetch list of users
-    users = apiconnection.listObjects('user')
-
-    # Build dict with desired state
-    desired_properties = {'password': user_password, 'enabled': user_enabled, 'description': user_description}
-    # Prepare dict with properties needing change
-    changed_properties = {}
-    # Prepare result dict
-    result = {}
-    additional_msg = []
-    # Initialize some control vars
-    needs_change = False
-    uuid = ''
-    # Check if user object with specified name exists
-    for user in users:
-        if user['name'] == user_name:
-            user_exists = True
-            uuid = user['uuid']
-            additional_msg.append(uuid)
-            break
-    user_exists = (uuid != '')
-
-    if user_state == 'present':
-        if user_exists:
-            user = apiconnection.getObjectByName('user', user_name)
-            for prop in desired_properties.keys():
-                if user[prop] != desired_properties[prop]:
-                    needs_change = True
-                    changed_properties[prop] = desired_properties[prop]
-                    additional_msg.append('Changing %s: %s => %s' %(prop, user[prop], desired_properties[prop]))
-            if not needs_change:
-                result = {'changed': False, 'msg': ['User already present: %s' %user_name]}
-            else:
-                if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('user', user_name, changed_properties))
-                    if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['User %s must be changed.' %user_name, additional_msg]}
-        else:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('user', user_name, desired_properties))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['User %s must be created.' %user_name, additional_msg]}
+    module = UserModule()
+    state = module.module.params.get("state", "present")
+    if state == "absent":
+        result = module.run_absent()
     else:
-        if user_exists:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('user', user_name))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['User %s must be deleted.' %user_name, additional_msg]}
-        else:
-            result = {'changed': False, 'msg': ['User %s is not present.' %user_name]}
-
-    module.exit_json(**result)
+        result = module.run()
+    module.module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

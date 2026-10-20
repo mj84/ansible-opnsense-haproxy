@@ -1,1 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+
+# IDE
+.idea/
+.vscode/
 *.swp
+*.swo
+
+# pytest
+.pytest_cache/

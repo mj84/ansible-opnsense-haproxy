@@ -2,202 +2,331 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
-from __future__ import absolute_import, division, print_function
+"""Manage HAProxy servers on OPNsense."""
 
-DOCUMENTATION =r'''
+DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_server
-short_description: Manage HAProxy servers on Opnsense
-'''
+short_description: Manage HAProxy servers on OPNsense
+description:
+  - Creates, updates, or deletes HAProxy backend servers via the OPNsense API.
+author:
+  - Markus Joosten (@mj84)
+options:
+  name:
+    description:
+      - The name of the server (must be unique).
+    type: str
+    required: true
+  address:
+    description:
+      - The server IP address or hostname.
+    type: str
+    required: true
+  port:
+    description:
+      - The server port.
+    type: str
+    required: true
+  description:
+    description:
+      - A description for the server.
+    type: str
+    default: ""
+  checkport:
+    description:
+      - The port to use for healthchecks (defaults to I(port) if empty).
+    type: str
+    default: ""
+  mode:
+    description:
+      - The server mode.
+    type: str
+    default: active
+  ssl:
+    description:
+      - Enable SSL for the server.
+    type: bool
+    default: false
+  ssl_verify:
+    description:
+      - Verify the server SSL certificate.
+    type: bool
+    default: true
+  ssl_ca:
+    description:
+      - List of SSL CA certificate names to trust.
+    type: list
+    elements: str
+    default: []
+    notes:
+      - Requires a two-step workflow due to OPNsense API limitations.
+        See the role README for details.
+  ssl_crl:
+    description:
+      - SSL CRL certificate name.
+    type: str
+    default: ""
+    notes:
+      - Requires a two-step workflow due to OPNsense API limitations.
+        See the role README for details.
+  ssl_client_certificate:
+    description:
+      - SSL client certificate name.
+    type: str
+    default: ""
+    notes:
+      - Requires a two-step workflow due to OPNsense API limitations.
+        See the role README for details.
+  weight:
+    description:
+      - The server weight.
+    type: str
+    default: ""
+  check_interval:
+    description:
+      - Healthcheck interval.
+    type: str
+    default: ""
+  check_down_interval:
+    description:
+      - Interval before marking server as down.
+    type: str
+    default: ""
+  source:
+    description:
+      - Source address for the server.
+    type: str
+    default: ""
+  advanced:
+    description:
+      - Advanced options string.
+    type: str
+    default: ""
+  state:
+    description:
+      - Whether the server should exist or not.
+    type: str
+    choices: [present, absent]
+    default: present
+  api_url:
+    description:
+      - The URL of the OPNsense firewall API.
+    type: str
+    required: true
+  api_key:
+    description:
+      - The API key for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_secret:
+    description:
+      - The API secret for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_ssl_verify:
+    description:
+      - Whether to verify the SSL certificate of the OPNsense API.
+    type: bool
+    default: false
+  haproxy_reload:
+    description:
+      - Whether to reload HAProxy configuration after changes.
+    type: bool
+    default: false
+seealso:
+  - module: opnsense_haproxy_backend
+"""
 
-from ansible.module_utils.opnsense_utils import OpnsenseApi
+EXAMPLES = r"""
+- name: Create a backend server
+  opnsense_haproxy_server:
+    name: web1
+    address: 10.0.0.1
+    port: "8080"
+    description: "Web server 1"
+    mode: active
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-from ansible.module_utils.basic import AnsibleModule
+- name: Create a server with SSL
+  opnsense_haproxy_server:
+    name: secure_backend
+    address: 10.0.0.2
+    port: "443"
+    ssl: true
+    ssl_verify: true
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-# There will only be a single AnsibleModule object per module
-module = None
+- name: Delete a server
+  opnsense_haproxy_server:
+    name: web1
+    state: absent
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
+"""
+
+RETURN = r"""
+msg:
+  description: Status message describing the action taken.
+  type: str
+  returned: always
+changed:
+  description: Whether the state was changed.
+  type: bool
+  returned: always
+"""
+
+from __future__ import absolute_import, division, print_function
+
+from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
+
+
+class ServerModule(OpnsenseHaproxyModule):
+    """Module for managing HAProxy backend servers."""
+
+    OBJECT_TYPE = "server"
+    ARGUMENT_SPEC = {
+        "name": dict(type="str", required=True),
+        "address": dict(type="str", required=True),
+        "port": dict(type="str", required=True),
+        "description": dict(type="str", default=""),
+        "checkport": dict(type="str", default=""),
+        "mode": dict(type="str", default="active"),
+        "ssl": dict(type="bool", default=False),
+        "ssl_verify": dict(type="bool", default=True),
+        "ssl_ca": dict(type="list", elements="str", default=[]),
+        "ssl_crl": dict(type="str", default=""),
+        "ssl_client_certificate": dict(type="str", default=""),
+        "weight": dict(type="str", default=""),
+        "check_interval": dict(type="str", default=""),
+        "check_down_interval": dict(type="str", default=""),
+        "source": dict(type="str", default=""),
+        "advanced": dict(type="str", default=""),
+    }
+
+    def _build_desired_state(self):
+        params = self.module.params
+        # For creation, SSL references must be empty (two-step workflow)
+        # For updates, we resolve them from the current object
+        if self._load_current_state() is None:
+            # New object — SSL refs cleared
+            ssl_ca = ""
+            ssl_crl = ""
+            ssl_client_certificate = ""
+        else:
+            # Existing object — resolve from current state
+            current = self._load_current_state()
+            ssl_ca = self._resolve_ssl_refs(params["ssl_ca"], current, "sslCA")
+            ssl_crl = self._resolve_ssl_single_ref(params["ssl_crl"], current, "sslCRL")
+            ssl_client_certificate = self._resolve_ssl_single_ref(
+                params["ssl_client_certificate"], current, "sslClientCertificate"
+            )
+
+        return {
+            "name": params["name"],
+            "address": params["address"],
+            "description": params["description"],
+            "port": params["port"],
+            "checkport": params["checkport"] or params["port"],
+            "mode": params["mode"],
+            "ssl": str(int(params["ssl"])),
+            "sslVerify": str(int(params["ssl_verify"])),
+            "sslCA": ssl_ca,
+            "sslCRL": ssl_crl,
+            "sslClientCertificate": ssl_client_certificate,
+            "weight": params["weight"],
+            "checkInterval": params["check_interval"],
+            "checkDownInterval": params["check_down_interval"],
+            "source": params["source"],
+            "advanced": params["advanced"],
+        }
+
+    def _resolve_ssl_refs(self, names, current, key):
+        """Resolve SSL CA names to UUIDs from the current object."""
+        if not names:
+            return ""
+        uuids = []
+        for name in names:
+            uuid = self.api.findValueInDict(current[key], searchvalue=name)
+            if uuid != "":
+                uuids.append(uuid)
+        return ",".join(uuids)
+
+    def _resolve_ssl_single_ref(self, name, current, key):
+        """Resolve a single SSL reference (CRL or client cert) from the current object."""
+        if not name:
+            return ""
+        return self.api.findValueInDict(current[key], searchvalue=name)
+
+    def _diff_state(self, current, desired):
+        """Custom diff for server — handles selection fields and SSL references."""
+        changes = {}
+        messages = []
+        needs_change = False
+        params = self.module.params
+
+        for prop, desired_value in desired.items():
+            current_value = current.get(prop)
+
+            if prop == "name":
+                continue
+
+            if prop == "mode":
+                selected = self.api.getSelected(current_value)
+                if selected != params["mode"]:
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append("Changing %s: %s => %s" % (prop, selected, params["mode"]))
+            elif prop in ("sslCA", "sslCRL", "sslClientCertificate"):
+                # SSL references — compare resolved values
+                current_resolved = current_value
+                if prop == "sslCA":
+                    current_list = self.api.getSelectedList(current_value)
+                    desired_list = self._resolve_ssl_refs(params["ssl_ca"], current, prop)
+                    if not self.api.compareLists(current_list, params["ssl_ca"]):
+                        needs_change = True
+                        changes[prop] = desired_value
+                        messages.append("Changing %s: %s => %s" % (prop, current_list, params["ssl_ca"]))
+                elif prop == "sslCRL":
+                    current_selected = self.api.getSelected(current_value)
+                    desired_uuid = self.api.findValueInDict(current_value, searchvalue=params["ssl_crl"])
+                    if current_selected != desired_uuid:
+                        needs_change = True
+                        changes[prop] = desired_value
+                        messages.append("Changing %s: %s => %s" % (prop, current_selected, params["ssl_crl"]))
+                elif prop == "sslClientCertificate":
+                    current_selected = self.api.getSelected(current_value, retval="value")
+                    if current_selected != params["ssl_client_certificate"]:
+                        needs_change = True
+                        changes[prop] = desired_value
+                        messages.append(
+                            "Changing %s: %s => %s"
+                            % (prop, current_selected, params["ssl_client_certificate"])
+                        )
+            elif current_value != desired_value:
+                needs_change = True
+                changes[prop] = desired_value
+                messages.append("Changing %s: %s => %s" % (prop, current_value, desired_value))
+
+        return needs_change, changes, messages
 
 
 def main():
-
-    global module
-    # Instantiate module
-    module = AnsibleModule(
-        argument_spec=dict(
-            api_url=dict(type='str', required=True),
-            api_key=dict(type='str', required=True, no_log=True),
-            api_secret=dict(type='str', required=True, no_log=True),
-            api_ssl_verify=dict(type='bool', default=False),
-            server_enabled=dict(type='bool', default=True),
-            server_name=dict(type='str', required=True),
-            server_address=dict(type='str', required=True),
-            server_description=dict(type='str', default=''),
-            server_port=dict(type='str', required=True),
-            server_checkport=dict(type='str', default=''),
-            server_mode=dict(type='str', default='active'),
-            server_ssl=dict(type='bool', default=False),
-            server_ssl_verify=dict(type='bool', default=True),
-            server_ssl_ca=dict(type='list', default=[]),
-            server_ssl_crl=dict(type='str', default=''),
-            server_ssl_client_certificate=dict(type='str', default=''),
-            server_weight=dict(type='str', default=''),
-            server_check_interval=dict(type='str', default=''),
-            server_check_down_interval=dict(type='str', default=''),
-            server_source=dict(type='str', default=''),
-            server_advanced=dict(type='str', default=''),
-            server_state=dict(type='str', choices=['present', 'absent'], default='present'),
-            haproxy_reload=dict(type='bool', default=False),
-        ),
-        supports_check_mode=True,
-    )
-    haproxy_reload = module.params['haproxy_reload']
-    # Prepare properties of server
-    server_state = module.params['server_state']
-    server_enabled = module.params['server_enabled']
-    server_name = module.params['server_name']
-    server_description = module.params['server_description']
-    server_address = module.params['server_address']
-    server_port = module.params['server_port']
-    server_checkport = module.params['server_port']
-    server_mode = module.params['server_mode']
-    server_ssl = module.params['server_ssl']
-    server_ssl_verify = module.params['server_ssl_verify']
-    server_ssl_ca = module.params['server_ssl_ca']
-    server_ssl_crl = module.params['server_ssl_crl']
-    server_ssl_client_certificate = module.params['server_ssl_client_certificate']
-    server_weight = module.params['server_weight']
-    server_check_interval = module.params['server_check_interval']
-    server_check_down_interval = module.params['server_check_down_interval']
-    server_source = module.params['server_source']
-    server_advanced = module.params['server_advanced']
-    # Instantiate API connection
-    api_url = module.params['api_url']
-    auth = (module.params['api_key'], module.params['api_secret'])
-    api_ssl_verify = module.params['api_ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(api_url, auth, api_ssl_verify)
-
-    # Fetch list of servers
-    servers = apiconnection.listObjects('server')
-
-    # Build dict with desired state
-    desired_properties = {
-        'name': server_name,
-        'address': server_address,
-        'description': server_description,
-        'port': server_port,
-        'checkport': server_checkport,
-        'mode': server_mode,
-        'ssl': str(int(server_ssl)),
-        'sslVerify': str(int(server_ssl_verify)),
-        'sslCA': server_ssl_ca,
-        'sslCRL': server_ssl_crl,
-        'sslClientCertificate': server_ssl_client_certificate,
-        'weight': server_weight,
-        'checkInterval': server_check_interval,
-        'checkDownInterval': server_check_down_interval,
-        'source': server_source,
-        'advanced': server_advanced,
-    }
-    # Prepare dict with properties needing change
-    changed_properties = {}
-    # Prepare result dict
-    result = {}
-    additional_msg = []
-    # Initialize some control vars
-    needs_change = False
-    uuid = ''
-    # Check if server object with specified name exists
-    for server in servers:
-        if server['name'] == server_name:
-            server_exists = True
-            uuid = server['uuid']
-            break
-    server_exists = (uuid != '')
-
-    if server_state == 'present':
-        if server_exists:
-            server = apiconnection.getObjectByName('server', server_name)
-            #for prop in ['code', 'content', 'description']:
-            for prop in desired_properties.keys():
-                # Special case for mode where selected element must be determined
-                if prop == 'mode':
-                    current_mode = apiconnection.getSelected(server[prop])
-                    if current_mode != server_mode:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing mode: %s => %s' %(current_mode, server_mode))
-                # Special case for sslCA where a list must be compared to a dict
-                elif prop == 'sslCA':
-                    # Get current list of selected CAs by their name
-                    current_ssl_ca = apiconnection.getSelectedList(server[prop])
-                    # Build list with keys of desired CAs
-                    desired_ssl_ca = []
-                    # Search the ids of desired ssl_ca names
-                    for ca in server_ssl_ca:
-                        ca_key = apiconnection.findValueInDict(
-                            server[prop],
-                            searchvalue=ca
-                        )
-                        if ca_key != '':
-                            desired_ssl_ca.append(ca_key)
-                    # Compare current and desired list of CA names
-                    if not apiconnection.compareLists(current_ssl_ca, server_ssl_ca):
-                        needs_change = True
-                        changed_properties['sslCA'] = ','.join(desired_ssl_ca)
-                        additional_msg.append('Changing sslCA: %s => %s' % (current_ssl_ca, desired_ssl_ca))
-                # Special case for sslCRL where a list must be compared to a dict
-                elif prop == 'sslCRL':
-                    current_ssl_crl = apiconnection.getSelected(server[prop])
-                    # Find id of sslCRL with desired name
-                    desired_ssl_crl = apiconnection.findValueInDict(server[prop], searchvalue=server_ssl_crl)
-                    if not current_ssl_crl == desired_ssl_crl:
-                        needs_change = True
-                        changed_properties['sslCRL'] = desired_ssl_crl
-                        additional_msg.append('Changing sslCRL: %s => %s' % (current_ssl_crl, server_ssl_crl))
-                # Special case for sslClientCertificate where a single object must be determined from a list
-                elif prop == 'sslClientCertificate':
-                    current_ssl_client_certificate = apiconnection.getSelected(server[prop], retval='value')
-                    if current_ssl_client_certificate != server_ssl_client_certificate:
-                        needs_change = True
-                        desired_ssl_client_certificate = apiconnection.findValueInDict(
-                            server[prop],
-                            searchvalue=server_ssl_client_certificate                           
-                        )
-                        changed_properties['sslClientCertificate'] = desired_ssl_client_certificate
-                        additional_msg.append('Changing sslClientCertificate: %s => %s' % (current_ssl_client_certificate, server_ssl_client_certificate))
-                # Standard case for regular simple values
-                else:
-                    if server[prop] != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, server[prop], desired_properties[prop]))
-            if not needs_change:
-                result = {'changed': False, 'msg': ['Server already present: %s' %server_name, additional_msg]}
-            else:
-                if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('server', server_name, changed_properties))
-                    if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Server %s must be changed.' %server_name, additional_msg]}
-        else:
-            if not module.check_mode:
-                # clear parameters sslCA, sslCRL and sslClientCertificate, because we can't get their available ids at this time
-                desired_properties['sslCA'] = ''
-                desired_properties['sslCRL'] = ''
-                desired_properties['sslClientCertificate'] = ''
-                additional_msg.append(apiconnection.createObject('server', server_name, desired_properties))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Server %s must be created.' %server_name, additional_msg]}
+    module = ServerModule()
+    state = module.module.params.get("state", "present")
+    if state == "absent":
+        result = module.run_absent()
     else:
-        if server_exists:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('server', server_name))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Server %s must be deleted.' %server_name, additional_msg]}
-        else:
-            result = {'changed': False, 'msg': ['Server %s is not present.' %server_name]}
-
-    module.exit_json(**result)
+        result = module.run()
+    module.module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

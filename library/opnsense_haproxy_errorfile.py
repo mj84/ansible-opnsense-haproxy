@@ -2,113 +2,140 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
-from __future__ import absolute_import, division, print_function
+"""Manage HAProxy errorfiles on OPNsense."""
 
-DOCUMENTATION =r'''
+DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_errorfile
-short_description: Manage HAProxy errorfiles on Opnsense
-'''
+short_description: Manage HAProxy errorfiles on OPNsense
+description:
+  - Creates, updates, or deletes HAProxy errorfiles via the OPNsense API.
+author:
+  - Markus Joosten (@mj84)
+options:
+  name:
+    description:
+      - The name of the errorfile (must be unique).
+    type: str
+    required: true
+  code:
+    description:
+      - The HTTP status code for this errorfile (e.g. ``403``, ``503``).
+    type: str
+    required: true
+  description:
+    description:
+      - A description for the errorfile.
+    type: str
+    default: ""
+  content:
+    description:
+      - The errorfile content (HTML or text).
+    type: str
+    default: ""
+  state:
+    description:
+      - Whether the errorfile should exist or not.
+    type: str
+    choices: [present, absent]
+    default: present
+  api_url:
+    description:
+      - The URL of the OPNsense firewall API.
+    type: str
+    required: true
+  api_key:
+    description:
+      - The API key for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_secret:
+    description:
+      - The API secret for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_ssl_verify:
+    description:
+      - Whether to verify the SSL certificate of the OPNsense API.
+    type: bool
+    default: false
+  haproxy_reload:
+    description:
+      - Whether to reload HAProxy configuration after changes.
+    type: bool
+    default: false
+seealso:
+  - module: opnsense_haproxy_acl
+  - module: opnsense_haproxy_backend
+  - module: opnsense_haproxy_frontend
+"""
 
-from ansible.module_utils.opnsense_utils import OpnsenseApi
+EXAMPLES = r"""
+- name: Create a custom 503 errorfile
+  opnsense_haproxy_errorfile:
+    name: custom_503
+    code: "503"
+    description: "Custom maintenance page"
+    content: "<html><body><h1>Maintenance</h1></body></html>"
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-from ansible.module_utils.basic import AnsibleModule
+- name: Delete an errorfile
+  opnsense_haproxy_errorfile:
+    name: custom_503
+    state: absent
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
+"""
 
-# There will only be a single AnsibleModule object per module
-module = None
+RETURN = r"""
+msg:
+  description: Status message describing the action taken.
+  type: str
+  returned: always
+changed:
+  description: Whether the state was changed.
+  type: bool
+  returned: always
+"""
+
+from __future__ import absolute_import, division, print_function
+
+from ansible.module_utils.opnsense_utils import OpnsenseHaproxyModule
+
+
+class ErrorfileModule(OpnsenseHaproxyModule):
+    """Module for managing HAProxy errorfiles."""
+
+    OBJECT_TYPE = "errorfile"
+    ARGUMENT_SPEC = {
+        "name": dict(type="str", required=True),
+        "code": dict(type="str", required=True),
+        "description": dict(type="str", default=""),
+        "content": dict(type="str", default=""),
+    }
+
+    def _build_desired_state(self):
+        return {
+            "code": self.module.params["code"],
+            "description": self.module.params["description"],
+            "content": self.module.params["content"],
+        }
 
 
 def main():
-
-    global module
-    # Instantiate module
-    module = AnsibleModule(
-        argument_spec=dict(
-            api_url=dict(type='str', required=True),
-            api_key=dict(type='str', required=True, no_log=True),
-            api_secret=dict(type='str', required=True, no_log=True),
-            api_ssl_verify=dict(type='bool', default=False),
-            errorfile_name=dict(type='str', required=True),
-            errorfile_code=dict(type='str', required=True),
-            errorfile_description=dict(type='str', default=''),
-            errorfile_content=dict(type='str', default=''),
-            errorfile_state=dict(type='str', choices=['present', 'absent'], default='present'),
-            haproxy_reload=dict(type='bool', default=False),
-        ),
-        supports_check_mode=True,
-    )
-    haproxy_reload = module.params['haproxy_reload']
-    # Prepare properties of errorfile
-    errorfile_name = module.params['errorfile_name']
-    errorfile_code = module.params['errorfile_code']
-    errorfile_content = module.params['errorfile_content']
-    errorfile_state = module.params['errorfile_state']
-    errorfile_description = module.params['errorfile_description']
-    # Instantiate API connection
-    api_url = module.params['api_url']
-    auth = (module.params['api_key'], module.params['api_secret'])
-    api_ssl_verify = module.params['api_ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(api_url, auth, api_ssl_verify)
-
-    # Fetch list of errorfiles
-    errorfiles = apiconnection.listObjects('errorfile')
-
-    # Build dict with desired state
-    desired_properties = {'code': errorfile_code, 'description': errorfile_description, 'content': errorfile_content}
-    # Prepare dict with properties needing change
-    changed_properties = {}
-    # Prepare result dict
-    result = {}
-    additional_msg = []
-    # Initialize some control vars
-    needs_change = False
-    uuid = ''
-    # Check if errorfile object with specified name exists
-    for errorfile in errorfiles:
-        if errorfile['name'] == errorfile_name:
-            errorfile_exists = True
-            uuid = errorfile['uuid']
-            additional_msg.append(uuid)
-            break
-    errorfile_exists = (uuid != '')
-
-    if errorfile_state == 'present':
-        if errorfile_exists:
-            errorfile = apiconnection.getObjectByName('errorfile', errorfile_name)
-            for prop in desired_properties.keys():
-                # Special case for code
-                if prop == 'code':
-                    current_code = apiconnection.getSelected(errorfile[prop])
-                    if current_code != desired_properties[prop]:
-                        changed_properties[prop] = desired_properties[prop]
-                else:
-                    if errorfile[prop] != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, errorfile[prop], desired_properties[prop]))
-            if not needs_change:
-                result = {'changed': False, 'msg': ['Errorfile already present: %s' %errorfile_name]}
-            else:
-                if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('errorfile', errorfile_name, changed_properties))
-                    if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Errorfile %s must be changed.' %errorfile_name, additional_msg]}
-        else:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('errorfile', errorfile_name, desired_properties))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Errorfile %s must be created.' %errorfile_name, additional_msg]}
+    module = ErrorfileModule()
+    state = module.module.params.get("state", "present")
+    if state == "absent":
+        result = module.run_absent()
     else:
-        if errorfile_exists:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('errorfile', errorfile_name))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Errorfile %s must be deleted.' %errorfile_name, additional_msg]}
-        else:
-            result = {'changed': False, 'msg': ['Errorfile %s is not present.' %errorfile_name]}
-
-    module.exit_json(**result)
+        result = module.run()
+    module.module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

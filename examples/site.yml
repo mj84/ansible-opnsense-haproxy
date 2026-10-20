@@ -1,0 +1,23 @@
+---
+# Minimal example playbook
+#
+# Usage:
+#   ansible-playbook -i inventory site.yml
+#
+# Prerequisites:
+#   - Python 3 on the controller
+#   - OPNsense firewall with HAProxy plugin installed
+#   - Valid API credentials with HAProxy management permissions
+
+- name: Configure HAProxy on OPNsense
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+    - name: Apply HAProxy configuration
+      ansible.builtin.include_role:
+        name: local.maj.opnsense.haproxy

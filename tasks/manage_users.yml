@@ -1,0 +1,13 @@
+---
+# Manage HAProxy users
+- name: Manage opnsense haproxy users
+  local.maj.opnsense_haproxy_user:
+    api_url: "{{ opnsense_api_url }}"
+    api_key: "{{ opnsense_api_key }}"
+    api_secret: "{{ opnsense_api_secret }}"
+    api_ssl_verify: "{{ opnsense_api_ssl_verify | default(false) }}"
+    haproxy_reload: "{{ opnsense_haproxy_reload | default(false) }}"
+  loop: "{{ opnsense_haproxy_users | default({}) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: opnsense_haproxy_users | default({}) | length > 0

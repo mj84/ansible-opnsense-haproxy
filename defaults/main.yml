@@ -1,2 +1,138 @@
 ---
-# defaults file for local.maj.opnsense.haproxy
+# Defaults for local.maj.opnsense.haproxy
+#
+# All object collections are dictionaries keyed by name.
+# Each name must be unique within its type.
+# See the role README for the full parameter schema per object type.
+
+# ---------------------------------------------------------------------------
+# OPNsense API connection
+# ---------------------------------------------------------------------------
+opnsense_api_url: ""
+opnsense_api_key: ""
+opnsense_api_secret: ""
+opnsense_api_ssl_verify: false
+
+# Whether to reload HAProxy after all objects have been managed.
+# Set to true for immediate effect; false for batch management with
+# a separate reload step.
+opnsense_haproxy_reload: false
+
+# ---------------------------------------------------------------------------
+# ACLs (Conditions)
+# ---------------------------------------------------------------------------
+opnsense_haproxy_acls: {}
+# Example:
+#   api_acl:
+#     expression: path_beg
+#     value: /api
+#     description: "API path ACL"
+
+# ---------------------------------------------------------------------------
+# CPU Affinity Rules
+# ---------------------------------------------------------------------------
+opnsense_haproxy_cpus: {}
+# Example:
+#   haproxy_cpu0:
+#     enabled: true
+#     process_id: x1
+#     thread_id: x1
+#     cpu_id: ["x0"]
+
+# ---------------------------------------------------------------------------
+# Errorfiles
+# ---------------------------------------------------------------------------
+opnsense_haproxy_errorfiles: {}
+# Example:
+#   custom_503:
+#     code: "503"
+#     description: "Custom maintenance page"
+#     content: "<html><body><h1>Maintenance</h1></body></html>"
+
+# ---------------------------------------------------------------------------
+# Healthchecks
+# ---------------------------------------------------------------------------
+opnsense_haproxy_healthchecks: {}
+# Example:
+#   http_check:
+#     type: http
+#     description: "HTTP health check"
+#     interval: "5s"
+#     http_method: GET
+#     http_uri: /health
+
+# ---------------------------------------------------------------------------
+# Lua Scripts
+# ---------------------------------------------------------------------------
+opnsense_haproxy_luas: {}
+# Example:
+#   my_script:
+#     enabled: true
+#     description: "Custom Lua script"
+#     content: |
+#       -- Lua code here
+
+# ---------------------------------------------------------------------------
+# Servers (Backend members)
+# ---------------------------------------------------------------------------
+opnsense_haproxy_servers: {}
+# Example:
+#   web1:
+#     address: 10.0.0.1
+#     port: "8080"
+#     description: "Web server 1"
+#     mode: active
+
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
+opnsense_haproxy_users: {}
+# Example:
+#   admin:
+#     password: "secret"
+#     enabled: true
+#     description: "Administrator"
+
+# ---------------------------------------------------------------------------
+# Groups
+# ---------------------------------------------------------------------------
+opnsense_haproxy_groups: {}
+# Example:
+#   admins:
+#     enabled: true
+#     description: "Administrator group"
+#     members: [admin, operator]
+
+# ---------------------------------------------------------------------------
+# Backends
+# ---------------------------------------------------------------------------
+opnsense_haproxy_backends: {}
+# Example:
+#   api_pool:
+#     mode: http
+#     algorithm: roundrobin
+#     linked_servers: [web1, web2, web3]
+#     health_check: http_check
+#     persistence: sticktable
+
+# ---------------------------------------------------------------------------
+# Actions (Rules)
+# ---------------------------------------------------------------------------
+opnsense_haproxy_actions: {}
+# Example:
+#   api_redirect:
+#     type: use_backend
+#     value: api_pool
+#     linked_acls: [api_acl]
+
+# ---------------------------------------------------------------------------
+# Frontends
+# ---------------------------------------------------------------------------
+opnsense_haproxy_frontends: {}
+# Example:
+#   web_https:
+#     bind: ["*:443"]
+#     mode: http
+#     default_backend: api_pool
+#     ssl_enabled: true
+#     ssl_certificates: [my_cert]

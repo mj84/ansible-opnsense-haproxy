@@ -2,124 +2,173 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
-from __future__ import absolute_import, division, print_function
+"""Manage HAProxy user groups on OPNsense."""
 
-DOCUMENTATION =r'''
+DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_group
-short_description: Manage HAProxy groups on Opnsense
-'''
+short_description: Manage HAProxy user groups on OPNsense
+description:
+  - Creates, updates, or deletes HAProxy user groups via the OPNsense API.
+author:
+  - Markus Joosten (@mj84)
+options:
+  name:
+    description:
+      - The name of the group (must be unique).
+    type: str
+    required: true
+  enabled:
+    description:
+      - Whether the group is enabled.
+    type: bool
+    default: true
+  description:
+    description:
+      - A description for the group.
+    type: str
+    default: ""
+  members:
+    description:
+      - List of user names that are members of this group.
+    type: list
+    elements: str
+    default: []
+  state:
+    description:
+      - Whether the group should exist or not.
+    type: str
+    choices: [present, absent]
+    default: present
+  api_url:
+    description:
+      - The URL of the OPNsense firewall API.
+    type: str
+    required: true
+  api_key:
+    description:
+      - The API key for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_secret:
+    description:
+      - The API secret for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_ssl_verify:
+    description:
+      - Whether to verify the SSL certificate of the OPNsense API.
+    type: bool
+    default: false
+  haproxy_reload:
+    description:
+      - Whether to reload HAProxy configuration after changes.
+    type: bool
+    default: false
+seealso:
+  - module: opnsense_haproxy_user
+  - module: opnsense_haproxy_acl
+  - module: opnsense_haproxy_frontend
+"""
 
-from ansible.module_utils.opnsense_utils import OpnsenseApi
+EXAMPLES = r"""
+- name: Create a group
+  opnsense_haproxy_group:
+    name: admins
+    enabled: true
+    description: "Administrator group"
+    members: [admin, operator]
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-from ansible.module_utils.basic import AnsibleModule
+- name: Delete a group
+  opnsense_haproxy_group:
+    name: admins
+    state: absent
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
+"""
 
-# There will only be a single AnsibleModule object per module
-module = None
+RETURN = r"""
+msg:
+  description: Status message describing the action taken.
+  type: str
+  returned: always
+changed:
+  description: Whether the state was changed.
+  type: bool
+  returned: always
+"""
+
+from __future__ import absolute_import, division, print_function
+
+from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
+
+
+class GroupModule(OpnsenseHaproxyModule):
+    """Module for managing HAProxy user groups."""
+
+    OBJECT_TYPE = "group"
+    ARGUMENT_SPEC = {
+        "name": dict(type="str", required=True),
+        "enabled": dict(type="bool", default=True),
+        "description": dict(type="str", default=""),
+        "members": dict(type="list", elements="str", default=[]),
+    }
+
+    def _build_desired_state(self):
+        params = self.module.params
+        # Resolve member UUIDs from template
+        template = self.api.getObjectByUuid(self.OBJECT_TYPE, "")
+        members_uuids = self._resolve_names_to_uuids(template, params["members"], "members")
+        return {
+            "enabled": str(int(params["enabled"])),
+            "description": params["description"],
+            "members": ",".join(members_uuids),
+        }
+
+    def _diff_state(self, current, desired):
+        """Custom diff for group — members need list comparison."""
+        changes = {}
+        messages = []
+        needs_change = False
+        params = self.module.params
+
+        for prop, desired_value in desired.items():
+            current_value = current.get(prop)
+
+            if prop == "name":
+                continue
+
+            if prop == "members":
+                current_list = self.api.getSelectedList(current_value)
+                if not self.api.compareLists(current_list, params["members"]):
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append(
+                        "Changing %s: %s => %s" % (prop, current_list, params["members"])
+                    )
+            elif current_value != desired_value:
+                needs_change = True
+                changes[prop] = desired_value
+                messages.append("Changing %s: %s => %s" % (prop, current_value, desired_value))
+
+        return needs_change, changes, messages
 
 
 def main():
-
-    global module
-    # Instantiate module
-    module = AnsibleModule(
-        argument_spec=dict(
-            api_url=dict(type='str', required=True),
-            api_key=dict(type='str', required=True, no_log=True),
-            api_secret=dict(type='str', required=True, no_log=True),
-            api_ssl_verify=dict(type='bool', default=False),
-            group_name=dict(type='str', required=True),
-            group_enabled=dict(type='bool', default=True),
-            group_description=dict(type='str', default=''),
-            group_members=dict(type='list', default=[]),
-            group_state=dict(type='str', choices=['present', 'absent'], default='present'),
-            haproxy_reload=dict(type='bool', default=False),
-        ),
-        supports_check_mode=True,
-    )
-    haproxy_reload = module.params['haproxy_reload']
-    # Prepare properties of group
-    group_name = module.params['group_name']
-    group_enabled = str(int(module.params['group_enabled']))
-    group_members = module.params['group_members']
-    group_state = module.params['group_state']
-    group_description = module.params['group_description']
-    # Instantiate API connection
-    api_url = module.params['api_url']
-    api_auth = (module.params['api_key'], module.params['api_secret'])
-    api_ssl_verify = module.params['api_ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(api_url, api_auth, api_ssl_verify)
-
-    # Fetch list of groups
-    groups = apiconnection.listObjects('group')
-
-    # Get an empty group object to lookup UUIDs for group members
-    empty_group = apiconnection.getObjectByUuid('group', '')
-    group_members_uuids = []
-    for group_member in group_members:
-        for key,value in empty_group['members']:
-            if value['value'] == group_member:
-                group_members_uuids.append(key)
-
-    # Build dict with desired state
-    desired_properties = {
-        'enabled': group_enabled,
-        'description': group_description,
-        'members': ','.join(group_members_uuids)
-    }
-    # Prepare dict with properties needing change
-    changed_properties = {}
-    # Prepare result dict
-    result = {}
-    additional_msg = []
-    # Initialize some control vars
-    needs_change = False
-    uuid = ''
-    # Check if group object with specified name exists
-    for group in groups:
-        if group['name'] == group_name:
-            uuid = group['uuid']
-            break
-    group_exists = (uuid != '')
-    if group_state == 'present':
-        if group_exists:
-            group = apiconnection.getObjectByName('group', group_name)
-            for prop in desired_properties.keys():
-                # Special case for members where two lists have to be compared
-                if prop == 'members':
-                    current_members_keys = apiconnection.getSelectedList(group[prop])
-                    if not apiconnection.compareLists(current_members_keys, group_members):
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing members: %s => %s' %(current_members_keys, desired_properties[prop]))
-                else:
-                    if group[prop] != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, group[prop], desired_properties[prop]))
-            if not needs_change:
-                result = {'changed': False, 'msg': ['Group already present: %s' %group_name]}
-            else:
-                if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('group', group_name, changed_properties))
-                    if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Group %s must be changed.' %group_name, additional_msg]}
-        else:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('group', group_name, desired_properties))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Group %s must be created.' %group_name, additional_msg]}
+    module = GroupModule()
+    state = module.module.params.get("state", "present")
+    if state == "absent":
+        result = module.run_absent()
     else:
-        if group_exists:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('group', group_name))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Group %s must be deleted.' %group_name, additional_msg]}
-        else:
-            result = {'changed': False, 'msg': ['Group %s is not present.' %group_name]}
-
-    module.exit_json(**result)
+        result = module.run()
+    module.module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -2,210 +2,355 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
-from __future__ import absolute_import, division, print_function
+"""Manage HAProxy healthchecks on OPNsense."""
 
-DOCUMENTATION =r'''
+DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_healthcheck
-short_description: Manage HAProxy healthchecks on Opnsense
-'''
+short_description: Manage HAProxy healthchecks on OPNsense
+description:
+  - Creates, updates, or deletes HAProxy healthchecks via the OPNsense API.
+author:
+  - Markus Joosten (@mj84)
+options:
+  name:
+    description:
+      - The name of the healthcheck (must be unique).
+    type: str
+    required: true
+  type:
+    description:
+      - The healthcheck protocol type.
+    type: str
+    choices:
+      - tcp
+      - http
+      - agent
+      - ldap
+      - mysql
+      - pgsql
+      - redis
+      - smtp
+      - esmtp
+      - ssl
+    default: http
+  description:
+    description:
+      - A description for the healthcheck.
+    type: str
+    default: ""
+  interval:
+    description:
+      - The check interval (e.g. ``2s``, ``30s``, ``5000ms``).
+    type: str
+    default: "2s"
+  force_ssl:
+    description:
+      - Force SSL for the healthcheck.
+    type: bool
+    default: false
+  checkport:
+    description:
+      - The port to use for healthchecks (defaults to the server port if empty).
+    type: str
+    default: ""
+  http_method:
+    description:
+      - The HTTP method for HTTP healthchecks.
+    type: str
+    default: options
+  http_uri:
+    description:
+      - The URI to check for HTTP healthchecks.
+    type: str
+    default: "/"
+  http_version:
+    description:
+      - The HTTP version for healthchecks.
+    type: str
+    choices: [http10, http11]
+    default: http10
+  http_host:
+    description:
+      - The Host header value for HTTP healthchecks.
+    type: str
+    default: localhost
+  http_expression_enabled:
+    description:
+      - Enable expression-based HTTP healthcheck matching.
+    type: bool
+    default: false
+  http_expression:
+    description:
+      - The expression type for HTTP healthcheck matching.
+    type: str
+    choices:
+      - ""
+      - status
+      - rstatus
+      - string
+      - rstring
+    default: ""
+  http_negate:
+    description:
+      - Negate the HTTP healthcheck expression.
+    type: bool
+    default: false
+  http_value:
+    description:
+      - The expected value for HTTP healthcheck matching.
+    type: str
+    default: ""
+  tcp_enabled:
+    description:
+      - Enable TCP healthcheck payload sending.
+    type: bool
+    default: false
+  tcp_send_value:
+    description:
+      - The payload to send for TCP healthchecks.
+    type: str
+    default: ""
+  tcp_match_type:
+    description:
+      - The type of TCP match.
+    type: str
+    choices:
+      - ""
+      - string
+      - rstring
+      - binary
+    default: ""
+  tcp_negate:
+    description:
+      - Negate the TCP healthcheck match.
+    type: bool
+    default: false
+  tcp_match_value:
+    description:
+      - The expected value for TCP healthcheck matching.
+    type: str
+    default: ""
+  agent_port:
+    description:
+      - The port for agent healthchecks.
+    type: str
+    default: ""
+  mysql_user:
+    description:
+      - The MySQL user for MySQL healthchecks.
+    type: str
+    default: ""
+  mysql_post41:
+    description:
+      - Use MySQL protocol version 4.1+.
+    type: bool
+    default: false
+  pgsql_user:
+    description:
+      - The PostgreSQL user for PostgreSQL healthchecks.
+    type: str
+    default: ""
+  smtp_domain:
+    description:
+      - The domain for SMTP healthchecks.
+    type: str
+    default: ""
+  esmtp_domain:
+    description:
+      - The domain for ESMTP healthchecks.
+    type: str
+    default: ""
+  db_user:
+    description:
+      - The user for generic database healthchecks.
+    type: str
+    default: ""
+  state:
+    description:
+      - Whether the healthcheck should exist or not.
+    type: str
+    choices: [present, absent]
+    default: present
+  api_url:
+    description:
+      - The URL of the OPNsense firewall API.
+    type: str
+    required: true
+  api_key:
+    description:
+      - The API key for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_secret:
+    description:
+      - The API secret for authentication.
+    type: str
+    required: true
+    no_log: true
+  api_ssl_verify:
+    description:
+      - Whether to verify the SSL certificate of the OPNsense API.
+    type: bool
+    default: false
+  haproxy_reload:
+    description:
+      - Whether to reload HAProxy configuration after changes.
+    type: bool
+    default: false
+seealso:
+  - module: opnsense_haproxy_backend
+"""
 
-from ansible.module_utils.opnsense_utils import OpnsenseApi
+EXAMPLES = r"""
+- name: Create an HTTP healthcheck
+  opnsense_haproxy_healthcheck:
+    name: http_check
+    type: http
+    description: "HTTP health check"
+    interval: "5s"
+    http_method: GET
+    http_uri: /health
+    http_version: http11
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
 
-from ansible.module_utils.basic import AnsibleModule
+- name: Delete a healthcheck
+  opnsense_haproxy_healthcheck:
+    name: http_check
+    state: absent
+    api_url: "https://firewall.local"
+    api_key: "my_key"
+    api_secret: "my_secret"
+"""
 
-# There will only be a single AnsibleModule object per module
-module = None
+RETURN = r"""
+msg:
+  description: Status message describing the action taken.
+  type: str
+  returned: always
+changed:
+  description: Whether the state was changed.
+  type: bool
+  returned: always
+"""
+
+from __future__ import absolute_import, division, print_function
+
+from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
+
+
+class HealthcheckModule(OpnsenseHaproxyModule):
+    """Module for managing HAProxy healthchecks."""
+
+    OBJECT_TYPE = "healthcheck"
+    ARGUMENT_SPEC = {
+        "name": dict(type="str", required=True),
+        "type": dict(
+            type="str",
+            choices=["tcp", "http", "agent", "ldap", "mysql", "pgsql", "redis", "smtp", "esmtp", "ssl"],
+            default="http",
+        ),
+        "description": dict(type="str", default=""),
+        "interval": dict(type="str", default="2s"),
+        "force_ssl": dict(type="bool", default=False),
+        "checkport": dict(type="str", default=""),
+        "http_method": dict(type="str", default="options"),
+        "http_uri": dict(type="str", default="/"),
+        "http_version": dict(type="str", choices=["http10", "http11"], default="http10"),
+        "http_host": dict(type="str", default="localhost"),
+        "http_expression_enabled": dict(type="bool", default=False),
+        "http_expression": dict(
+            type="str", choices=["", "status", "rstatus", "string", "rstring"], default=""
+        ),
+        "http_negate": dict(type="bool", default=False),
+        "http_value": dict(type="str", default=""),
+        "tcp_enabled": dict(type="bool", default=False),
+        "tcp_send_value": dict(type="str", default=""),
+        "tcp_match_type": dict(
+            type="str", choices=["", "string", "rstring", "binary"], default=""
+        ),
+        "tcp_negate": dict(type="bool", default=False),
+        "tcp_match_value": dict(type="str", default=""),
+        "agent_port": dict(type="str", default=""),
+        "mysql_user": dict(type="str", default=""),
+        "mysql_post41": dict(type="bool", default=False),
+        "pgsql_user": dict(type="str", default=""),
+        "smtp_domain": dict(type="str", default=""),
+        "esmtp_domain": dict(type="str", default=""),
+        "db_user": dict(type="str", default=""),
+    }
+
+    def _build_desired_state(self):
+        params = self.module.params
+        return {
+            "description": params["description"],
+            "type": params["type"],
+            "interval": params["interval"],
+            "force_ssl": str(int(params["force_ssl"])),
+            "checkport": params["checkport"],
+            "http_method": params["http_method"],
+            "http_uri": params["http_uri"],
+            "http_version": params["http_version"],
+            "http_host": params["http_host"],
+            "http_expressionEnabled": str(int(params["http_expression_enabled"])),
+            "http_expression": params["http_expression"],
+            "http_negate": str(int(params["http_negate"])),
+            "http_value": params["http_value"],
+            "tcp_enabled": str(int(params["tcp_enabled"])),
+            "tcp_sendValue": params["tcp_send_value"],
+            "tcp_matchType": params["tcp_match_type"],
+            "tcp_negate": str(int(params["tcp_negate"])),
+            "tcp_matchValue": params["tcp_match_value"],
+            "agent_port": params["agent_port"],
+            "mysql_user": params["mysql_user"],
+            "mysql_post41": str(int(params["mysql_post41"])),
+            "pgsql_user": params["pgsql_user"],
+            "smtp_domain": params["smtp_domain"],
+            "esmtp_domain": params["esmtp_domain"],
+            "agentPort": params["agent_port"],
+            "smtpDomain": params["smtp_domain"],
+        }
+
+    def _diff_state(self, current, desired):
+        """Custom diff for healthcheck — selection fields need getSelected()."""
+        changes = {}
+        messages = []
+        needs_change = False
+
+        selection_fields = ["type", "http_method", "http_version", "http_expression", "tcp_matchType"]
+
+        for prop, desired_value in desired.items():
+            current_value = current.get(prop)
+
+            if prop == "name":
+                continue
+
+            if prop in selection_fields:
+                selected = self.api.getSelected(current_value)
+                if selected != desired_value:
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
+            elif current_value != desired_value:
+                needs_change = True
+                changes[prop] = desired_value
+                messages.append("Changing %s: %s => %s" % (prop, current_value, desired_value))
+
+        return needs_change, changes, messages
 
 
 def main():
-
-    global module
-    # Instantiate module
-    module = AnsibleModule(
-        argument_spec=dict(
-            api_url=dict(type='str', required=True),
-            api_key=dict(type='str', required=True, no_log=True),
-            api_secret=dict(type='str', required=True, no_log=True),
-            api_ssl_verify=dict(type='bool', default=False),
-            healthcheck_state=dict(type='str', choices=['present', 'absent'], default='present'),
-            healthcheck_name=dict(type='str', required=True),
-            healthcheck_type=dict(type='str', choices=['tcp', 'http', 'agent', 'ldap', 'mysql', 'pgsql', 'redis', 'smtp', 'esmtp', 'ssl'], default='http'),
-            healthcheck_description=dict(type='str', default=''),
-            healthcheck_interval=dict(type='str', default='2s'),
-            healthcheck_force_ssl=dict(type='bool', default=False),
-            healthcheck_checkport=dict(type='str', default=''),
-            healthcheck_http_method=dict(type='str', default='options'),
-            healthcheck_http_uri=dict(type='str', default='/'),
-            healthcheck_http_version=dict(type=str, choices=['http10', 'http11'], default='http10'),
-            healthcheck_http_host=dict(type='str', default='localhost'),
-            healthcheck_http_expression_enabled=dict(type='bool', default=False),
-            healthcheck_http_expression=dict(type='str', choices=['', 'status', 'rstatus', 'string', 'rstring'], default=''),
-            healthcheck_http_negate=dict(type='bool', default=False),
-            healthcheck_http_value=dict(type='str', default=''),
-            healthcheck_tcp_enabled=dict(type='bool', default=False),
-            healthcheck_tcp_send_value=dict(type='str', default=''),
-            healthcheck_tcp_match_type=dict(type='str', choices=['', 'string', 'rstring', 'binary'], default=''),
-            healthcheck_tcp_negate=dict(type='bool', default=False),
-            healthcheck_tcp_match_value=dict(type='str', default=''),
-            healthcheck_agent_port=dict(type='str', default=''),
-            healthcheck_mysql_user=dict(type='str', default=''),
-            healthcheck_mysql_post41=dict(type='bool', default=False),
-            healthcheck_pgsql_user=dict(type='str', default=''),
-            healthcheck_smtp_domain=dict(type='str', default=''),
-            healthcheck_esmtp_domain=dict(type='str', default=''),
-            healthcheck_db_user=dict(type='str', default=''),
-            haproxy_reload=dict(type='bool', default=False),
-        ),
-        supports_check_mode=True,
-    )
-    haproxy_reload = module.params['haproxy_reload']
-    # Prepare properties of healthcheck
-    healthcheck_state = module.params['healthcheck_state']
-    healthcheck_name = module.params['healthcheck_name']
-    healthcheck_description = module.params['healthcheck_description']
-    healthcheck_type = module.params['healthcheck_type']
-    healthcheck_interval = module.params['healthcheck_interval']
-    healthcheck_force_ssl = module.params['healthcheck_force_ssl']
-    healthcheck_checkport = module.params['healthcheck_checkport']
-    healthcheck_http_method = module.params['healthcheck_http_method']
-    healthcheck_http_uri = module.params['healthcheck_http_uri']
-    healthcheck_http_version = module.params['healthcheck_http_version']
-    healthcheck_http_host = module.params['healthcheck_http_host']
-    healthcheck_http_expression = module.params['healthcheck_http_expression']
-    healthcheck_http_expression_enabled = module.params['healthcheck_http_expression_enabled']
-    healthcheck_http_negate =  module.params['healthcheck_http_negate']
-    healthcheck_http_value = module.params['healthcheck_http_value']
-    healthcheck_tcp_enabled = module.params['healthcheck_tcp_enabled']
-    healthcheck_tcp_send_value = module.params['healthcheck_tcp_send_value']
-    healthcheck_tcp_match_type = module.params['healthcheck_tcp_match_type']
-    healthcheck_tcp_negate = module.params['healthcheck_tcp_negate']
-    healthcheck_tcp_match_value = module.params['healthcheck_tcp_match_value']
-    healthcheck_agent_port = module.params['healthcheck_agent_port']
-    healthcheck_mysql_user = module.params['healthcheck_mysql_user']
-    healthcheck_mysql_post41 = module.params['healthcheck_mysql_post41']
-    healthcheck_pgsql_user = module.params['healthcheck_pgsql_user']
-    healthcheck_smtp_domain = module.params['healthcheck_smtp_domain']
-    healthcheck_esmtp_domain =  module.params['healthcheck_esmtp_domain']
-    healthcheck_db_user = module.params['healthcheck_db_user']
-
-    # Instantiate API connection
-    api_url = module.params['api_url']
-    api_auth = (module.params['api_key'], module.params['api_secret'])
-    api_ssl_verify = module.params['api_ssl_verify']
-    apiconnection = OpnsenseApi.Haproxy(api_url, api_auth, api_ssl_verify)
-
-    # Fetch list of healthchecks
-    healthchecks = apiconnection.listObjects('healthcheck')
-
-    # Build dict with desired state
-    desired_properties = {
-        'description': healthcheck_description,
-        'type': healthcheck_type,
-        'interval': healthcheck_interval,
-        'force_ssl': str(int(healthcheck_force_ssl)),
-        'checkport': healthcheck_checkport,
-        'http_method': healthcheck_http_method,
-        'http_uri': healthcheck_http_uri,
-        'http_version': healthcheck_http_version,
-        'http_host': healthcheck_http_host,
-        'http_expressionEnabled': str(int(healthcheck_http_expression_enabled)),
-        'http_expression': healthcheck_http_expression,
-        'http_negate': str(int(healthcheck_http_negate)),
-        'http_value': healthcheck_http_value,
-        'tcp_enabled': str(int(healthcheck_tcp_enabled)),
-        'tcp_sendValue': healthcheck_tcp_send_value,
-        'tcp_matchType': healthcheck_tcp_match_type,
-        'tcp_negate': str(int(healthcheck_tcp_negate)),
-        'tcp_matchValue': healthcheck_tcp_match_value,
-        'agent_port': healthcheck_agent_port,
-        'mysql_user': healthcheck_mysql_user,
-        'mysql_post41': str(int(healthcheck_mysql_post41)),
-        'pgsql_user': healthcheck_pgsql_user,
-        'smtp_domain': healthcheck_smtp_domain,
-        'esmtp_domain': healthcheck_esmtp_domain,
-        'agentPort': healthcheck_agent_port,
-        'smtpDomain': healthcheck_smtp_domain
-    }
-    # Prepare dict with properties needing change
-    changed_properties = {}
-    # Prepare result dict
-    result = {}
-    additional_msg = []
-    # Initialize some control vars
-    needs_change = False
-    uuid = ''
-    # Check if healthcheck object with specified name exists
-    for healthcheck in healthchecks:
-        if healthcheck['name'] == healthcheck_name:
-            uuid = healthcheck['uuid']
-            break
-    healthcheck_exists = (uuid != '')
-    if healthcheck_state == 'present':
-        if healthcheck_exists:
-            healthcheck = apiconnection.getObjectByName('healthcheck', healthcheck_name)
-            for prop in desired_properties.keys():
-                # Special cases for complex propertierts:
-                if prop == 'type':
-                    current_type = apiconnection.getSelected(healthcheck[prop])
-                    if current_type != healthcheck_type:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_type, desired_properties[prop]))
-                elif prop == 'http_method':
-                    current_http_method = apiconnection.getSelected(healthcheck[prop])
-                    if current_http_method != healthcheck_http_method:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_http_method, desired_properties[prop]))
-                elif prop == 'http_version':
-                    current_http_version = apiconnection.getSelected(healthcheck[prop])
-                    if current_http_version != healthcheck_http_version:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_http_version, desired_properties[prop]))
-                elif prop == 'http_expression':
-                    current_http_expression = apiconnection.getSelected(healthcheck[prop])
-                    if current_http_expression != healthcheck_http_expression:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_http_expression, desired_properties[prop]))
-                elif prop == 'tcp_matchType':
-                    current_tcp_match_type = apiconnection.getSelected(healthcheck[prop])
-                    if current_tcp_match_type != healthcheck_tcp_match_type:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, current_tcp_match_type, desired_properties[prop]))
-                else:
-                    # catch all other properties
-                    if healthcheck[prop] != desired_properties[prop]:
-                        needs_change = True
-                        changed_properties[prop] = desired_properties[prop]
-                        additional_msg.append('Changing %s: %s => %s' %(prop, healthcheck[prop], desired_properties[prop]))
-
-            if not needs_change:
-                result = {'changed': False, 'msg': ['Healthcheck already present: %s' %healthcheck_name, additional_msg]}
-            else:
-                if not module.check_mode:
-                    additional_msg.append(apiconnection.updateObject('healthcheck', healthcheck_name, changed_properties))
-                    if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-                result = {'changed': True, 'msg': ['Healthcheck %s must be changed.' %healthcheck_name, additional_msg]}
-        else:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.createObject('healthcheck', healthcheck_name, desired_properties))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Healthcheck %s must be created.' %healthcheck_name, additional_msg]}
+    module = HealthcheckModule()
+    state = module.module.params.get("state", "present")
+    if state == "absent":
+        result = module.run_absent()
     else:
-        if healthcheck_exists:
-            if not module.check_mode:
-                additional_msg.append(apiconnection.deleteObject('healthcheck', healthcheck_name))
-                if haproxy_reload: additional_msg.append(apiconnection.applyConfig())
-            result = {'changed': True, 'msg': ['Healthcheck %s must be deleted.' %healthcheck_name, additional_msg]}
-        else:
-            result = {'changed': False, 'msg': ['Healthcheck %s is not present.' %healthcheck_name]}
-
-    module.exit_json(**result)
+        result = module.run()
+    module.module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

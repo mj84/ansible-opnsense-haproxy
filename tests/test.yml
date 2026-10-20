@@ -1,5 +1,25 @@
 ---
+# Integration test playbook — requires a live OPNsense box
+#
+# Usage:
+#   ansible-playbook -i tests/inventory tests/test.yml
+#
+# Prerequisites:
+#   - A running OPNsense firewall with HAProxy plugin
+#   - Valid API credentials in group_vars/
+#   - Python 3 on the controller
+
 - hosts: localhost
-  remote_user: root
-  roles:
-    - local.maj.opnsense.haproxy
+  connection: local
+  gather_facts: no
+
+  vars:
+    opnsense_api_url: "{{ lookup('env', 'OPNSENSE_URL') }}"
+    opnsense_api_key: "{{ lookup('env', 'OPNSENSE_API_KEY') }}"
+    opnsense_api_secret: "{{ lookup('env', 'OPNSENSE_API_SECRET') }}"
+    opnsense_api_ssl_verify: false
+
+  tasks:
+    - name: Include role
+      ansible.builtin.include_role:
+        name: local.maj.opnsense.haproxy

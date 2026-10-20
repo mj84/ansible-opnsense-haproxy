@@ -1,0 +1,68 @@
+---
+# OPNsense API connection
+opnsense_api_url: "https://opnsense.local"
+opnsense_api_key: "your_api_key"
+opnsense_api_secret: "your_api_secret"
+opnsense_api_ssl_verify: false
+
+# ---------------------------------------------------------------------------
+# HAProxy objects
+# ---------------------------------------------------------------------------
+
+# ACLs
+opnsense_haproxy_acls:
+  api_path:
+    expression: path_beg
+    value: /api
+    description: "API path"
+  static_path:
+    expression: path_beg
+    value: /static
+    description: "Static files"
+
+# Servers
+opnsense_haproxy_servers:
+  web1:
+    address: 10.0.0.1
+    port: "8080"
+    description: "Web server 1"
+  web2:
+    address: 10.0.0.2
+    port: "8080"
+    description: "Web server 2"
+
+# Healthchecks
+opnsense_haproxy_healthchecks:
+  http_check:
+    type: http
+    description: "HTTP health check"
+    interval: "5s"
+    http_method: GET
+    http_uri: /health
+
+# Backends
+opnsense_haproxy_backends:
+  api_pool:
+    mode: http
+    algorithm: roundrobin
+    linked_servers: [web1, web2]
+    health_check: http_check
+    persistence: sticktable
+
+# Actions
+opnsense_haproxy_actions:
+  api_redirect:
+    type: use_backend
+    value: api_pool
+    linked_acls: [api_path]
+  static_redirect:
+    type: use_backend
+    value: static_pool
+    linked_acls: [static_path]
+
+# Frontends
+opnsense_haproxy_frontends:
+  web_http:
+    bind: ["*:80"]
+    mode: http
+    default_backend: api_pool
