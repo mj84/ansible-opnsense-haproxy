@@ -10,12 +10,14 @@ license:
   - GPL-2.0-or-later
 license_file: ''
 tags:
+  - infrastructure
+  - networking
   - haproxy
   - opnsense
   - loadbalancer
   - proxy
   - firewall
-dependencies: []
+dependencies: {}
 repository: https://github.com/mj84/ansible-opnsense-haproxy
 documentation: ''
 homepage: https://github.com/mj84/ansible-opnsense-haproxy

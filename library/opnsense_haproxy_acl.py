@@ -4,6 +4,8 @@
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
 """Manage HAProxy ACLs (Conditions) on OPNsense."""
 
+from __future__ import absolute_import, division, print_function
+
 DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_acl
@@ -18,6 +20,11 @@ options:
       - The name of the ACL (must be unique).
     type: str
     required: true
+  description:
+    description:
+      - A description for the ACL.
+    type: str
+    default: ""
   expression:
     description:
       - The ACL expression type.
@@ -419,8 +426,6 @@ changed:
   returned: always
 """
 
-from __future__ import absolute_import, division, print_function
-
 from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
 
 
@@ -430,6 +435,7 @@ class AclModule(OpnsenseHaproxyModule):
     OBJECT_TYPE = "acl"
     ARGUMENT_SPEC = {
         "name": dict(type="str", required=True),
+        "description": dict(type="str", default=""),
         "expression": dict(
             type="str",
             required=True,

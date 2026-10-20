@@ -2,8 +2,8 @@
 # tasks file for local.maj.opnsense.haproxy
 #
 # Object types are managed in dependency order:
-#   ACLs → CPUs → Errorfiles → Healthchecks → Lua → Servers → Users → Groups
-#   → Backends → Actions → Frontends
+#   ACLs → CPUs → Errorfiles → Mapfiles → Healthchecks → Lua → Servers
+#   → Users → Groups → Backends → Actions → Frontends
 #
 # Each task file only runs when the corresponding variable dict is non-empty.
 
@@ -15,6 +15,9 @@
 
 - name: Include errorfile management tasks
   ansible.builtin.include_tasks: manage_errorfiles.yml
+
+- name: Include map file management tasks
+  ansible.builtin.include_tasks: manage_mapfiles.yml
 
 - name: Include healthcheck management tasks
   ansible.builtin.include_tasks: manage_healthchecks.yml

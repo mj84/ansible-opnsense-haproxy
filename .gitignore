@@ -17,3 +17,6 @@ build/
 
 # pytest
 .pytest_cache/
+
+# ansible-lint / ansible-test artifacts
+.ansible/

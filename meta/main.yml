@@ -21,4 +21,4 @@ galaxy_info:
     - loadbalancer
     - proxy
     - firewall
-  dependencies: []
+dependencies: []

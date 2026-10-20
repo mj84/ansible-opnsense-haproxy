@@ -9,7 +9,8 @@
 #   - Valid API credentials in group_vars/
 #   - Python 3 on the controller
 
-- hosts: localhost
+- name: Configure HAProxy on OPNsense
+  hosts: localhost
   connection: local
   gather_facts: no
 

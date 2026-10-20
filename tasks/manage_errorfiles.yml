@@ -1,12 +1,12 @@
 ---
 # Manage HAProxy errorfiles
+#
+# opnsense_haproxy_errorfiles is a dict keyed by object name; each value holds the
+# module parameters for that object. The shared connection arguments, the
+# object's own parameters and its name (the dict key, which always wins) are
+# merged into one argument set for the module.
 - name: Manage opnsense haproxy errorfiles
-  local.maj.opnsense_haproxy_errorfile:
-    api_url: "{{ opnsense_api_url }}"
-    api_key: "{{ opnsense_api_key }}"
-    api_secret: "{{ opnsense_api_secret }}"
-    api_ssl_verify: "{{ opnsense_api_ssl_verify | default(false) }}"
-    haproxy_reload: "{{ opnsense_haproxy_reload | default(false) }}"
+  opnsense_haproxy_errorfile: "{{ opnsense_haproxy_connection_args | combine(item.value, {'name': item.key}) }}"
   loop: "{{ opnsense_haproxy_errorfiles | default({}) | dict2items }}"
   loop_control:
     label: "{{ item.key }}"

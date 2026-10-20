@@ -162,6 +162,8 @@ class OpnsenseHaproxyModule(ABC):
                 self.api.applyConfig()
             except ConfigTestError as exc:
                 self.module.fail_json(msg=[f"HAProxy config test failed: {exc}"])
+            except OpnsenseApiError as exc:
+                self.module.fail_json(msg=[f"HAProxy reload failed: {exc}"])
 
     # ------------------------------------------------------------------
     # Diff logic
@@ -241,8 +243,7 @@ class OpnsenseHaproxyModule(ABC):
     # Internal: AnsibleModule creation
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _create_ansible_module(supports_check_mode: bool = True) -> AnsibleModule:
+    def _create_ansible_module(self, supports_check_mode: bool = True) -> AnsibleModule:
         """Create the AnsibleModule with shared + subclass-specific params."""
         base_spec = {
             "api_url": dict(type="str", required=True),
@@ -252,8 +253,9 @@ class OpnsenseHaproxyModule(ABC):
             "haproxy_reload": dict(type="bool", default=False),
             "state": dict(type="str", choices=["present", "absent"], default="present"),
         }
-        # Merge base spec with subclass-specific spec
-        argument_spec = {**base_spec, **OpnsenseHaproxyModule.ARGUMENT_SPEC}
+        # Merge base spec with the subclass' own spec (self, not the base class,
+        # so each module registers its own parameters)
+        argument_spec = {**base_spec, **self.ARGUMENT_SPEC}
 
         return AnsibleModule(
             argument_spec=argument_spec,

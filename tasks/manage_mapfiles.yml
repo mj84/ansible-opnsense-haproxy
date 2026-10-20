@@ -1,0 +1,13 @@
+---
+# Manage HAProxy map files
+#
+# opnsense_haproxy_mapfiles is a dict keyed by object name; each value holds the
+# module parameters for that object. The shared connection arguments, the
+# object's own parameters and its name (the dict key, which always wins) are
+# merged into one argument set for the module.
+- name: Manage opnsense haproxy mapfiles
+  opnsense_haproxy_mapfile: "{{ opnsense_haproxy_connection_args | combine(item.value, {'name': item.key}) }}"
+  loop: "{{ opnsense_haproxy_mapfiles | default({}) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: opnsense_haproxy_mapfiles | default({}) | length > 0

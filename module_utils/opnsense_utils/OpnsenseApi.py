@@ -111,9 +111,12 @@ class Haproxy:
         """
         r = requests.post(url, auth=self.auth, verify=self.ssl_verify, json=data, timeout=30)
         r_json = r.json()
-        if r_json.get("errorMessage") or (
-            "result" in r_json and r_json["result"].get("failed") is True
-        ):
+        # The API reports failures either as 'errorMessage' or inside 'result'.
+        # 'result' is a dict for the settings endpoints but a plain string for
+        # the service endpoints (configtest/reconfigure), so handle both.
+        result = r_json.get("result")
+        failed = result.get("failed") is True if isinstance(result, dict) else "failed" in str(result)
+        if r_json.get("errorMessage") or failed:
             raise OpnsenseApiError("API threw an error: %s" % r_json)
         return r_json
 

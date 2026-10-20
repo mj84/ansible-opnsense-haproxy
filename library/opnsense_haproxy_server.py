@@ -4,6 +4,8 @@
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
 """Manage HAProxy servers on OPNsense."""
 
+from __future__ import absolute_import, division, print_function
+
 DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_server
@@ -183,8 +185,6 @@ changed:
   returned: always
 """
 
-from __future__ import absolute_import, division, print_function
-
 from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
 
 
@@ -215,23 +215,14 @@ class ServerModule(OpnsenseHaproxyModule):
         params = self.module.params
         # Fetch the empty server template — contains all available SSL object
         # selection dicts so we can resolve names to UUIDs regardless of what
-        # is currently linked to the server.
+        # is currently linked to the server. This works for new servers too.
         template = self.api.getObjectByUuid(self.OBJECT_TYPE, "")
 
-        # For creation, SSL references must be empty (two-step workflow)
-        # For updates, we resolve them from the template
-        if self._load_current_state() is None:
-            # New object — SSL refs cleared
-            ssl_ca = ""
-            ssl_crl = ""
-            ssl_client_certificate = ""
-        else:
-            # Existing object — resolve from template
-            ssl_ca = self._resolve_ssl_refs(params["ssl_ca"], template, "sslCA")
-            ssl_crl = self._resolve_ssl_single_ref(params["ssl_crl"], template, "sslCRL")
-            ssl_client_certificate = self._resolve_ssl_single_ref(
-                params["ssl_client_certificate"], template, "sslClientCertificate"
-            )
+        ssl_ca = self._resolve_ssl_refs(params["ssl_ca"], template, "sslCA")
+        ssl_crl = self._resolve_ssl_single_ref(params["ssl_crl"], template, "sslCRL")
+        ssl_client_certificate = self._resolve_ssl_single_ref(
+            params["ssl_client_certificate"], template, "sslClientCertificate"
+        )
 
         return {
             "name": params["name"],

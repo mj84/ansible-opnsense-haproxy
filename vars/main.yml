@@ -1,0 +1,13 @@
+---
+# Internal variables for local.maj.opnsense.haproxy
+#
+# Arguments shared by every module call. The per-object parameters from the
+# opnsense_haproxy_* dicts are merged on top of these (see tasks/manage_*.yml),
+# so an object may override e.g. haproxy_reload or set state: absent.
+
+opnsense_haproxy_connection_args:
+  api_url: "{{ opnsense_api_url }}"
+  api_key: "{{ opnsense_api_key }}"
+  api_secret: "{{ opnsense_api_secret }}"
+  api_ssl_verify: "{{ opnsense_api_ssl_verify | default(false) }}"
+  haproxy_reload: "{{ opnsense_haproxy_reload | default(false) }}"

@@ -4,6 +4,8 @@
 # Copyright: (c) 2019, Markus Joosten https://github.com/mj84
 """Manage HAProxy CPU affinity rules on OPNsense."""
 
+from __future__ import absolute_import, division, print_function
+
 DOCUMENTATION = r"""
 ---
 module: opnsense_haproxy_cpu
@@ -308,8 +310,6 @@ changed:
   type: bool
   returned: always
 """
-
-from __future__ import absolute_import, division, print_function
 
 from ansible.module_utils.opnsense_utils import Haproxy, OpnsenseHaproxyModule
 
