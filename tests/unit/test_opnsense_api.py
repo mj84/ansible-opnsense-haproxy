@@ -99,6 +99,16 @@ class TestGetSelected:
         assert api.getSelected(data) == "uuid2"
         assert api.getSelected(data, retval="name") == "web2"
 
+    def test_get_selected_accepts_a_plain_value(self):
+        """Some endpoints answer with the value instead of the selection dict."""
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        assert api.getSelected("ca-001") == "ca-001"
+
+    def test_get_selected_of_empty_input(self):
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        assert api.getSelected("") == ""
+        assert api.getSelected({}) == ""
+
 
 class TestGetSelectedList:
     """Test getSelectedList helper."""
@@ -134,6 +144,16 @@ class TestGetSelectedList:
             "uuid3": {"name": "web3", "selected": "1"},
         }
         assert api.getSelectedList(data, retval="key") == ["uuid1", "uuid3"]
+
+    def test_get_selected_list_accepts_a_plain_list(self):
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        assert api.getSelectedList(["uuid1", "uuid2"]) == ["uuid1", "uuid2"]
+
+    def test_get_selected_list_of_empty_input_is_an_empty_list(self):
+        """The return type stays a list, whatever shape comes back empty."""
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        assert api.getSelectedList({}) == []
+        assert api.getSelectedList("") == []
 
 
 class TestFindValueInDict:
@@ -277,3 +297,28 @@ class TestGetSelectedKeysFromDict:
         }
         result = api.getSelectedKeysFromDict(data)
         assert result == []
+
+    def test_selected_keys_match_an_int_flag(self):
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        data = {"uuid1": {"selected": 1}, "uuid2": {"selected": 0}}
+        assert api.getSelectedKeysFromDict(data) == ["uuid1"]
+
+    def test_selected_keys_accept_a_plain_list(self):
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        assert api.getSelectedKeysFromDict(["uuid1"]) == ["uuid1"]
+
+    def test_selected_keys_of_empty_input_is_an_empty_list(self):
+        api = Haproxy("https://firewall.local", ("key", "secret"), False)
+        assert api.getSelectedKeysFromDict({}) == []
+        assert api.getSelectedKeysFromDict("") == []
+
+
+class TestIsSelectionDict:
+    """Test the isSelectionDict shape check."""
+
+    def test_recognises_the_api_shape(self):
+        assert Haproxy.isSelectionDict({"u1": {"selected": "1", "name": "x"}}) is True
+
+    def test_rejects_other_shapes(self):
+        for value in ("uuid1", ["uuid1"], {"u1": {"name": "x"}}, {}, None, 1):
+            assert Haproxy.isSelectionDict(value) is False

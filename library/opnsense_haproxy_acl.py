@@ -603,7 +603,6 @@ class AclModule(OpnsenseHaproxyModule):
         changes = {}
         messages = []
         needs_change = False
-        params = self.module.params
 
         selection_fields = ["expression"]
         comparison_fields = [
@@ -614,12 +613,7 @@ class AclModule(OpnsenseHaproxyModule):
             "src_kbytes_out_comparison", "src_port_comparison",
             "src_sess_cnt_comparison",
         ]
-        reference_fields = {
-            "nbsrv_backend": ("nbsrv_backend", "nbsrv_backend"),
-            "queryBackend": ("query_backend", "queryBackend"),
-            "allowedUsers": ("allowed_users", "allowedUsers"),
-            "allowedGroups": ("allowed_groups", "allowedGroups"),
-        }
+        reference_fields = ["nbsrv_backend", "queryBackend", "allowedUsers", "allowedGroups"]
 
         for prop, desired_value in desired.items():
             current_value = current.get(prop)
@@ -641,21 +635,15 @@ class AclModule(OpnsenseHaproxyModule):
                     needs_change = True
                     changes[prop] = desired_value
                     messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
-            # Reference fields (UUID lists)
+            # Reference fields (UUID lists) — the desired value already holds
+            # the resolved UUIDs, the current one arrives as a selection dict.
             elif prop in reference_fields:
-                param_name, template_key = reference_fields[prop]
-                if param_name.endswith("_users") or param_name.endswith("_groups"):
-                    current_list = self.api.getSelectedList(current_value)
-                    if not self.api.compareLists(current_list, params[param_name]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params[param_name]))
-                elif param_name in ("nbsrv_backend", "query_backend"):
-                    current_ref = self.api.getSelected(current_value)
-                    if current_ref != params[param_name]:
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_ref, params[param_name]))
+                current_keys = self._reference_keys(current_value)
+                desired_keys = self._reference_keys(desired_value)
+                if not self.api.compareLists(current_keys, desired_keys):
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append("Changing %s: %s => %s" % (prop, current_keys, desired_keys))
             # Simple fields
             elif current_value != desired_value:
                 needs_change = True

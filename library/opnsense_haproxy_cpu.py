@@ -393,11 +393,12 @@ class CpuModule(OpnsenseHaproxyModule):
                     changes[prop] = desired_value
                     messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
             elif prop == "cpu_id":
-                current_list = self.api.getSelectedList(current_value, retval="key")
-                if not self.api.compareLists(current_list, self.module.params["cpu_id"]):
+                current_keys = self._reference_keys(current_value)
+                desired_keys = self._reference_keys(desired_value)
+                if not self.api.compareLists(current_keys, desired_keys):
                     needs_change = True
                     changes[prop] = desired_value
-                    messages.append("Changing %s: %s => %s" % (prop, current_list, desired_value))
+                    messages.append("Changing %s: %s => %s" % (prop, current_keys, desired_keys))
             elif current_value != desired_value:
                 needs_change = True
                 changes[prop] = desired_value

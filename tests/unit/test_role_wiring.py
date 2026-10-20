@@ -21,6 +21,8 @@ import pytest
 import yaml
 from unittest.mock import MagicMock, patch
 
+from ansible.module_utils import basic
+
 from module_utils.opnsense_utils.OpnsenseApi import Haproxy, OpnsenseApiError
 from module_utils.opnsense_utils.OpnsenseModule import OpnsenseHaproxyModule
 
@@ -39,10 +41,19 @@ class _SpecModule(OpnsenseHaproxyModule):
         "name": dict(type="str", required=True),
         "width": dict(type="int", default=7),
         "special": dict(type="str", no_log=False),
+        "shape": dict(type="str", required=True),
     }
 
     def _build_desired_state(self):
         return {"name": self.module.params["name"]}
+
+
+_BASE_ARGS = {
+    "api_url": "https://fw.local",
+    "api_key": "k",
+    "api_secret": "s",
+    "api_ssl_verify": False,
+}
 
 
 def _build_module(args):
@@ -51,37 +62,46 @@ def _build_module(args):
     argv = ["opnsense_haproxy_test", json.dumps({"ANSIBLE_MODULE_ARGS": args})]
     with pytest.MonkeyPatch.context() as patcher:
         patcher.setattr(sys, "argv", argv)
+        # AnsibleModule caches the arguments it parsed for the whole process,
+        # so each call has to start from a clean slate.
+        patcher.setattr(basic, "_ANSIBLE_ARGS", None)
         return module._create_ansible_module()
 
 
 def test_subclass_argument_spec_reaches_ansible_module():
     """The subclass spec must be merged in, not the empty base class one."""
-    base_params = {
-        "api_url": "https://fw.local",
-        "api_key": "k",
-        "api_secret": "s",
-        "api_ssl_verify": False,
+    module = _build_module({
+        **_BASE_ARGS,
         "haproxy_reload": False,
         "state": "present",
-    }
-    module = _build_module({**base_params, "name": "obj", "width": 42})
+        "name": "obj",
+        "width": 42,
+        "shape": "round",
+    })
 
     assert module.params["name"] == "obj"
     # A parameter that only the subclass declares must survive.
     assert module.params["width"] == 42
     # Defaults from the subclass spec are applied.
-    assert module.params["special"] is None or isinstance(module.params["special"], str)
+    assert module.params["special"] is None
+
+
+def test_absent_state_does_not_demand_type_specific_params():
+    """Deleting an object only needs its name."""
+    module = _build_module({**_BASE_ARGS, "name": "obj", "state": "absent"})
+    assert module.params["state"] == "absent"
+    assert module.params["shape"] is None
+
+
+def test_present_state_still_demands_required_params():
+    """The relaxation must not leak into the create/update path."""
+    with pytest.raises(SystemExit):
+        _build_module({**_BASE_ARGS, "name": "obj"})
 
 
 def test_base_spec_is_still_merged():
     """Connection arguments from the base class keep working."""
-    module = _build_module({
-        "name": "obj",
-        "api_url": "https://fw.local",
-        "api_key": "k",
-        "api_secret": "s",
-        "api_ssl_verify": False,
-    })
+    module = _build_module({**_BASE_ARGS, "name": "obj", "shape": "round"})
     assert module.params["api_url"] == "https://fw.local"
     assert module.params["state"] == "present"
     assert module.check_mode is False

@@ -51,6 +51,22 @@ OPNsense uses internal UUIDs for all objects. Users interact exclusively by **na
 ### Selection fields come back as dicts
 A single-choice field (a backend's `healthCheck`, an action's `type`) is **not** a plain value in a GET response. The API returns `{"<uuid>": {"selected": "1", "name": "…"}}` for every option, with the chosen one flagged. `api.getSelected()` / `getSelectedList()` reduce that to the key or name, and `OpnsenseHaproxyModule._is_selection_dict()` recognises the shape in `_diff_state()`. Note the API flags selection with the **string** `"1"`, not the int `1`.
 
+### Compare references as UUIDs, and name fields the API's way
+`_build_desired_state()` resolves every reference name to its UUID and joins
+lists with commas — that is what gets sent to the API, so it is also what the
+diff has to compare. Comparing the current UUID against
+`self.module.params[...]` (still a name) makes the object look out of date on
+every run. `OpnsenseHaproxyModule._reference_keys()` reduces the three shapes a
+reference arrives in — the API's selection dict, the comma-joined string, a
+plain list — to one list of keys; use it on both sides.
+
+The same trap applies to the field lists inside a `_diff_state()` override: the
+loop iterates **API keys**, so `selection_fields`/`reference_fields` must hold
+`persistence_cookiemode`, `connectionBehaviour`, `basicAuthUsers` — not the
+parameter names `persistence_cookie_mode`, `connection_behaviour`,
+`basic_auth_users`. A name that never matches falls through to a raw
+comparison, which always reports a change for a selection dict.
+
 ### `haproxy_reload` parameter
 Each module accepts `haproxy_reload` (default `false`). When `true`, the module runs OPNsense's `configtest` + `reconfigure` API calls after making changes. Set this selectively — unnecessary reloads cause brief service interruptions. Those two endpoints answer with a plain string in `result`, not a dict; `postRequest()` handles both.
 
@@ -67,8 +83,10 @@ Each dict key is the object name (must be unique). Values are dicts of the modul
 Every module is a subclass of `OpnsenseHaproxyModule` that defines:
 1. `OBJECT_TYPE` — the OPNsense API type string (e.g. `'backend'`)
 2. `ARGUMENT_SPEC` — module-specific parameter definitions. `_create_ansible_module()` merges these with the base class spec (`name`, `state`, the API arguments, `haproxy_reload`), so do not redeclare those.
-3. `_build_desired_state()` — returns a dict of properties for the API
-4. Optional `_diff_state()` override — only needed for complex comparison logic (selection dicts, reference lists)
+3. `_build_desired_state()` — returns a dict of properties for the API, keyed and
+   valued the way the API wants them (API key names, references resolved to UUIDs,
+   lists comma-joined, booleans as `"0"`/`"1"`).
+4. Optional `_diff_state()` override — only needed for complex comparison logic (conditional SSL blocks, order-sensitive links). The base class already handles selection dicts and reference lists via `_reference_keys()`.
 
 In every module file the `from __future__ import …` block must stay the first statement, above `DOCUMENTATION`, or the module will not import. The `module_utils` import belongs after the documentation blocks, which is why flake8 ignores `E402` (see `setup.cfg`).
 

@@ -136,7 +136,6 @@ class GroupModule(OpnsenseHaproxyModule):
         changes = {}
         messages = []
         needs_change = False
-        params = self.module.params
 
         for prop, desired_value in desired.items():
             current_value = current.get(prop)
@@ -145,12 +144,15 @@ class GroupModule(OpnsenseHaproxyModule):
                 continue
 
             if prop == "members":
-                current_list = self.api.getSelectedList(current_value)
-                if not self.api.compareLists(current_list, params["members"]):
+                # The desired value holds the resolved member UUIDs, the current
+                # one arrives as a selection dict.
+                current_keys = self._reference_keys(current_value)
+                desired_keys = self._reference_keys(desired_value)
+                if not self.api.compareLists(current_keys, desired_keys):
                     needs_change = True
                     changes[prop] = desired_value
                     messages.append(
-                        "Changing %s: %s => %s" % (prop, current_list, params["members"])
+                        "Changing %s: %s => %s" % (prop, current_keys, desired_keys)
                     )
             elif current_value != desired_value:
                 needs_change = True

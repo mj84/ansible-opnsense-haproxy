@@ -284,6 +284,12 @@ class Haproxy:
     # Selection helpers (for OPNsense's dict-with-``selected``-flag format)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def isSelectionDict(values: Any) -> bool:
+        """True for the API's selection shape, e.g. ``{"<uuid>": {"selected": "1"}}``."""
+        first = next(iter(values.values()), None) if isinstance(values, dict) else None
+        return isinstance(first, dict) and "selected" in first
+
     def getSelected(self, valuesdict: Dict[str, Any], retval: str = "key") -> str:
         """Return the currently selected key or value from a selection dict.
 
@@ -292,8 +298,15 @@ class Haproxy:
             retval: Return ``'key'`` (default) or a specific value key.
 
         Returns:
-            The selected key or value, or ``''`` if nothing is selected.
+            The selected key or value, or ``''`` if nothing is selected. A value
+            that is not a selection dict is returned unchanged.
         """
+        if not valuesdict:
+            return ""
+        if not self.isSelectionDict(valuesdict):
+            # Already a plain value — some endpoints answer without the
+            # selection wrapper.
+            return valuesdict
         for key, value in valuesdict.items():
             # The API sends 'selected' as a string ("1"), tests and callers may
             # pass an int.
@@ -315,11 +328,18 @@ class Haproxy:
             retval: Return ``'key'`` or a specific value key.
 
         Returns:
-            List of selected keys or values.
+            List of selected keys or values. A value that is not a selection
+            dict is treated as the list of selected items itself.
         """
         selected_items: List[str] = []
         if isinstance(valuesdict, list) and valuesdict == []:
             return []
+        if valuesdict == {} or valuesdict == "":
+            return []
+        if not self.isSelectionDict(valuesdict):
+            if isinstance(valuesdict, str):
+                return [valuesdict]
+            return valuesdict
         for key, value in valuesdict.items():
             if str(value.get("selected")) == "1":
                 if retval == "key":
@@ -404,9 +424,16 @@ class Haproxy:
             objs: Dict of objects with a ``'selected'`` field.
 
         Returns:
-            List of selected keys.
+            List of selected keys, or the input treated as the list of selected
+            keys when it is not a selection dict.
         """
-        return [key for key, value in objs.items() if value.get("selected") == "1"]
+        if objs == {} or objs == "":
+            return []
+        if not self.isSelectionDict(objs):
+            if isinstance(objs, str):
+                return [objs]
+            return objs
+        return [key for key, value in objs.items() if str(value.get("selected")) == "1"]
 
     # ------------------------------------------------------------------
     # Utility

@@ -316,13 +316,16 @@ class ActionModule(OpnsenseHaproxyModule):
         # Check type-specific properties
         if action_type_key in desired:
             if action_type_key in current:
-                # Simple type value
+                # Simple type value, or a reference the API reports as a
+                # selection dict (use_backend and friends).
                 if not has_http_subprops:
-                    if current[action_type_key] != desired[action_type_key]:
+                    current_keys = self._reference_keys(current[action_type_key])
+                    desired_keys = self._reference_keys(desired[action_type_key])
+                    if not self.api.compareLists(current_keys, desired_keys):
                         needs_change = True
                         changes[action_type_key] = desired[action_type_key]
                         messages.append("Changing %s: %s => %s" % (
-                            action_type_key, current[action_type_key], desired[action_type_key]
+                            action_type_key, current_keys, desired_keys
                         ))
             else:
                 # Type key missing entirely — rebuild
@@ -347,24 +350,15 @@ class ActionModule(OpnsenseHaproxyModule):
                             "Changing %s: %s => %s" % (special_prop, current[special_prop], desired[special_prop])
                         )
 
-        # Check use_backend specifically
-        if params["type"] == "use_backend" and not needs_change:
-            current_use_backend = self.api.getSelected(current.get(action_type_key, {}))
-            if current_use_backend != desired.get(action_type_key, ""):
-                needs_change = True
-                changes[action_type_key] = desired[action_type_key]
-                messages.append(
-                    "Changing %s: %s => %s" % (action_type_key, current_use_backend, desired[action_type_key])
-                )
-
-        # Check linked ACLs
-        if "linkedAcls" in current and "linkedAcls" in desired:
-            current_acls = self.api.getSelectedList(current["linkedAcls"])
-            desired_acls = params["linked_acls"]
-            if not self.api.compareLists(current_acls, desired_acls):
+        # Linked ACLs — the desired value holds the resolved UUIDs, the current
+        # one arrives as a selection dict.
+        if "linkedAcls" in desired:
+            current_keys = self._reference_keys(current.get("linkedAcls"))
+            desired_keys = self._reference_keys(desired["linkedAcls"])
+            if not self.api.compareLists(current_keys, desired_keys):
                 needs_change = True
                 changes["linkedAcls"] = desired["linkedAcls"]
-                messages.append("Changing linkedAcls: %s => %s" % (current_acls, desired_acls))
+                messages.append("Changing linkedAcls: %s => %s" % (current_keys, desired_keys))
 
         return needs_change, changes, messages
 

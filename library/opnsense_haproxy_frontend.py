@@ -598,7 +598,7 @@ class FrontendModule(OpnsenseHaproxyModule):
         }
 
     def _diff_state(self, current, desired):
-        """Custom diff for frontend — handles many selection fields and conditional SSL checks."""
+        """Custom diff for frontend - selection fields, references, SSL conditions."""
         changes = {}
         messages = []
         needs_change = False
@@ -606,15 +606,17 @@ class FrontendModule(OpnsenseHaproxyModule):
         ssl_enabled = params["ssl_enabled"]
         ssl_advanced = params["ssl_advanced_enabled"]
 
-        selection_fields = ["mode", "stickiness_pattern", "connection_behaviour"]
-        reference_fields = {
-            "defaultBackend": ("default_backend", "defaultBackend"),
-            "linkedCpuAffinityRules": ("linked_cpu_affinity_rules", "linkedCpuAffinityRules"),
-            "linkedActions": ("linked_actions", "linkedActions"),
-            "linkedErrorfiles": ("linked_errorfiles", "linkedErrorfiles"),
-        }
-        list_fields = ["bind", "ssl_certificates", "ssl_bind_options",
-                       "stickiness_data_types", "basic_auth_users", "basic_auth_groups"]
+        # Fields the API reports as {"<option>": {"selected": "1", ...}}: enums
+        # keyed by their value, references keyed by the object UUID. The desired
+        # state holds the same options as a comma-joined string.
+        selectable_fields = [
+            "mode", "stickiness_pattern", "connectionBehaviour", "ssl_clientAuthVerify",
+            "defaultBackend", "linkedCpuAffinityRules", "linkedActions", "linkedErrorfiles",
+            "basicAuthUsers", "basicAuthGroups",
+            "ssl_certificates", "ssl_default_certificate",
+            "ssl_clientAuthCAs", "ssl_clientAuthCRLs",
+            "bind", "ssl_bindOptions", "stickiness_dataTypes",
+        ]
 
         for prop, desired_value in desired.items():
             current_value = current.get(prop)
@@ -622,105 +624,38 @@ class FrontendModule(OpnsenseHaproxyModule):
             if prop == "name":
                 continue
 
-            # Skip SSL properties if SSL is not enabled
-            if prop.startswith("ssl") and not ssl_enabled:
-                if prop == "ssl_enabled":
-                    pass  # Still check ssl_enabled itself
-                else:
-                    continue
+            # SSL sub-properties only matter while SSL is enabled
+            if prop.startswith("ssl") and prop != "ssl_enabled" and not ssl_enabled:
+                continue
 
-            # Skip advanced SSL properties if not enabled
-            if ssl_advanced is False and prop in (
+            # Advanced SSL properties only matter when they are in use
+            if not ssl_advanced and prop in (
                 "ssl_bindOptions", "ssl_cipherList",
                 "ssl_http2Enabled", "ssl_hstsEnabled",
-                "ssl_hstsIncludeSubdomains", "ssl_hstsPreload",
+                "ssl_hstsIncludeSubDomains", "ssl_hstsPreload",
                 "ssl_hstsMaxAge",
             ):
                 continue
 
             # Client auth properties only matter when client auth is enabled
-            if prop in ("ssl_clientAuthVerify", "ssl_clientAuthCAs", "ssl_clientAuthCRLs"):
-                if not params["ssl_client_auth_enabled"]:
-                    continue
+            if not params["ssl_client_auth_enabled"] and prop in (
+                "ssl_clientAuthVerify", "ssl_clientAuthCAs", "ssl_clientAuthCRLs",
+            ):
+                continue
 
             # Basic auth properties only matter when basic auth is enabled
-            if prop in ("basicAuthUsers", "basicAuthGroups"):
-                if not params["basic_auth_enabled"]:
-                    continue
+            if not params["basic_auth_enabled"] and prop in ("basicAuthUsers", "basicAuthGroups"):
+                continue
 
-            # Selection fields
-            if prop in selection_fields:
-                selected = self.api.getSelected(current_value)
-                if selected != desired_value:
+            if prop in selectable_fields:
+                current_keys = self._reference_keys(current_value)
+                desired_keys = self._reference_keys(desired_value)
+                if not self.api.compareLists(
+                    current_keys, desired_keys, order_sensitive=prop == "linkedActions"
+                ):
                     needs_change = True
                     changes[prop] = desired_value
-                    messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
-            # List fields (bind, stickiness_data_types, etc.)
-            elif prop in list_fields:
-                if prop == "bind":
-                    if not self.api.compareLists(params["bind"], current_value):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s" % prop)
-                elif prop == "stickiness_data_types":
-                    current_list = self.api.getSelected(current_value)
-                    if not self.api.compareLists(current_list, params["stickiness_data_types"]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params["stickiness_data_types"]))
-                elif prop == "ssl_certificates" and ssl_enabled:
-                    current_list = self.api.getSelectedList(current_value, retval="key")
-                    if not self.api.compareLists(current_list, params["ssl_certificates"]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s" % prop)
-                elif prop == "ssl_bind_options" and ssl_enabled:
-                    current_list = self.api.getSelectedList(current_value)
-                    if not self.api.compareLists(current_list, params["ssl_bind_options"]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params["ssl_bind_options"]))
-                elif prop == "basic_auth_users" and params["basic_auth_enabled"]:
-                    current_list = self.api.getSelectedList(current_value)
-                    if not self.api.compareLists(current_list, params["basic_auth_users"]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params["basic_auth_users"]))
-                elif prop == "basic_auth_groups" and params["basic_auth_enabled"]:
-                    current_list = self.api.getSelectedList(current_value)
-                    if not self.api.compareLists(current_list, params["basic_auth_groups"]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params["basic_auth_groups"]))
-                else:
-                    if current_value != desired_value:
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_value, desired_value))
-            # Reference fields
-            elif prop in reference_fields:
-                param_name, _ = reference_fields[prop]
-                if prop == "defaultBackend":
-                    current_ref = self.api.getSelected(current_value, retval="value")
-                    if current_ref != params[param_name]:
-                        if current_ref == "" and params[param_name] == "none":
-                            pass
-                        else:
-                            needs_change = True
-                            changes[prop] = desired_value
-                            messages.append("Changing %s: %s => %s" % (prop, current_ref, params[param_name]))
-                elif prop == "linkedActions":
-                    current_list = self.api.getSelectedList(current_value, retval="key")
-                    if not self.api.compareLists(current_list, params[param_name], order_sensitive=True):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params[param_name]))
-                else:
-                    current_list = self.api.getSelectedList(current_value, retval="key")
-                    if not self.api.compareLists(current_list, params[param_name]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params[param_name]))
+                    messages.append("Changing %s: %s => %s" % (prop, current_keys, desired_keys))
             # Simple fields
             elif current_value != desired_value:
                 needs_change = True

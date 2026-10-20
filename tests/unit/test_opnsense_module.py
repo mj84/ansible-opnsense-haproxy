@@ -4,8 +4,8 @@ from contextlib import contextmanager
 
 from unittest.mock import MagicMock, patch
 
-from module_utils.opnsense_utils.OpnsenseModule import OpnsenseHaproxyModule
 from module_utils.opnsense_utils.OpnsenseApi import ObjectNotFoundError
+from module_utils.opnsense_utils.OpnsenseModule import OpnsenseHaproxyModule
 
 
 # Minimal concrete subclass for testing
@@ -181,12 +181,20 @@ class TestDiffState:
 
     def test_selection_field_change(self):
         with _make_mock_module() as module:
-            module._mock_api.getSelected.return_value = "old_selected"
             current = {"name": "test_obj", "field": {"uuid1": {"selected": 1, "value": "old_selected"}}}
-            desired = {"name": "test_obj", "field": "new_selected"}
+            desired = {"name": "test_obj", "field": "uuid2"}
             needs_change, changes, messages = module._diff_state(current, desired)
             assert needs_change is True
-            module._mock_api.getSelected.assert_called_once()
+            assert changes == {"field": "uuid2"}
+
+    def test_selection_field_unchanged(self):
+        """The selected key is what counts, not the whole dict."""
+        with _make_mock_module() as module:
+            current = {"name": "test_obj", "field": {"uuid1": {"selected": 1, "value": "old"}}}
+            desired = {"name": "test_obj", "field": "uuid1"}
+            needs_change, changes, messages = module._diff_state(current, desired)
+            assert needs_change is False
+            assert changes == {}
 
     def test_name_field_ignored(self):
         with _make_mock_module() as module:
@@ -212,3 +220,62 @@ class TestDiffState:
         assert is_selection({"uuid1": "web1"}) is False
         assert is_selection("web1") is False
         assert is_selection(None) is False
+
+    def test_reference_behind_a_selection_dict_is_not_a_change(self):
+        """A healthCheck the user already has must not look like a change.
+
+        The API reports single-choice fields as a dict of every option with the
+        chosen one flagged, so the current value has to be reduced to its key
+        before it is compared with what the user asked for.
+        """
+        with _make_mock_module() as module:
+            current = {"name": "test_obj", "field": {"hc-1": {"selected": "1", "name": "web"}}}
+            desired = {"name": "test_obj", "field": "hc-1"}
+            needs_change, changes, messages = module._diff_state(current, desired)
+            assert needs_change is False
+            assert changes == {}
+
+    def test_reference_list_behind_a_selection_dict_is_not_a_change(self):
+        with _make_mock_module() as module:
+            current = {
+                "name": "test_obj",
+                "field": {"acl-1": {"selected": "1", "name": "a"}, "acl-2": {"selected": "0"}},
+            }
+            desired = {"name": "test_obj", "field": ["acl-1"]}
+            needs_change, changes, messages = module._diff_state(current, desired)
+            assert needs_change is False
+            assert changes == {}
+
+    def test_reference_list_in_the_desired_order_is_not_a_change(self):
+        """The API may report the options in any order."""
+        with _make_mock_module() as module:
+            current = {
+                "name": "test_obj",
+                "field": {"acl-2": {"selected": "1"}, "acl-1": {"selected": "1"}},
+            }
+            desired = {"name": "test_obj", "field": ["acl-1", "acl-2"]}
+            needs_change, changes, messages = module._diff_state(current, desired)
+            assert needs_change is False
+
+
+class TestReferenceKeys:
+    """Test the _reference_keys helper that makes the shapes comparable."""
+
+    def test_selection_dict_yields_the_selected_keys(self):
+        keys = OpnsenseHaproxyModule._reference_keys
+        assert keys({"a": {"selected": "1"}, "b": {"selected": "0"}, "c": {"selected": 1}}) == ["a", "c"]
+
+    def test_comma_string_yields_the_parts(self):
+        keys = OpnsenseHaproxyModule._reference_keys
+        assert keys("a,b") == ["a", "b"]
+        assert keys("a") == ["a"]
+        assert keys("") == []
+
+    def test_list_passes_through(self):
+        assert OpnsenseHaproxyModule._reference_keys(["a", "b"]) == ["a", "b"]
+
+    def test_scalars_yield_a_single_entry(self):
+        keys = OpnsenseHaproxyModule._reference_keys
+        assert keys("http") == ["http"]
+        assert keys(None) == []
+        assert keys(0) == []

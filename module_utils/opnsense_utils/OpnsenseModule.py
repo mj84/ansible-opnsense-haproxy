@@ -10,7 +10,7 @@ from __future__ import absolute_import, division, print_function
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.basic import AnsibleModule, _load_params
 
 from .OpnsenseApi import (
     ConfigTestError,
@@ -187,14 +187,21 @@ class OpnsenseHaproxyModule(ABC):
             if prop == "name":
                 continue
 
-            # OPNsense returns selection fields as {"<uuid>": {"selected": "1", ...}}
-            # while the desired state holds the plain key.
-            if self._is_selection_dict(current_value):
-                selected = self.api.getSelected(current_value)
-                if selected != desired_value:
+            # OPNsense reports single- and multi-choice fields as
+            # {"<uuid>": {"selected": "1", ...}} while the desired state holds
+            # the resolved key (or a comma-joined string of keys). Reduce both
+            # sides to key lists so they can be compared at all.
+            if self._is_selection_dict(current_value) or isinstance(
+                desired_value, (list, dict)
+            ):
+                current_keys = self._reference_keys(current_value)
+                desired_keys = self._reference_keys(desired_value)
+                if not Haproxy.compareLists(current_keys, desired_keys):
                     needs_change = True
                     changes[prop] = desired_value
-                    messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
+                    messages.append(
+                        "Changing %s: %s => %s" % (prop, current_keys, desired_keys)
+                    )
             elif current_value != desired_value:
                 needs_change = True
                 changes[prop] = desired_value
@@ -205,8 +212,34 @@ class OpnsenseHaproxyModule(ABC):
     @staticmethod
     def _is_selection_dict(value: Any) -> bool:
         """True for an OPNsense selection dict, e.g. ``{"<uuid>": {"selected": "1"}}``."""
-        first = next(iter(value.values()), None) if isinstance(value, dict) else None
-        return isinstance(first, dict) and "selected" in first
+        return Haproxy.isSelectionDict(value)
+
+    @staticmethod
+    def _reference_keys(value: Any) -> List[str]:
+        """Reduce a reference field to its list of UUID keys.
+
+        The same reference arrives in three shapes: as the API's selection dict
+        (``{"<uuid>": {"selected": "1", ...}}``), as the comma-joined string
+        ``_build_desired_state()`` produces, or as a plain list. All three mean
+        the same thing, so compare them as key lists.
+
+        Args:
+            value: Reference field in any of the shapes above.
+
+        Returns:
+            List of UUID keys, in the order they appear.
+        """
+        if isinstance(value, str):
+            return [key for key in value.split(",") if key != ""]
+        if isinstance(value, dict):
+            return [
+                key
+                for key, entry in value.items()
+                if isinstance(entry, dict) and str(entry.get("selected")) == "1"
+            ]
+        if isinstance(value, list):
+            return list(value)
+        return []
 
     # ------------------------------------------------------------------
     # Reference resolution helpers
@@ -260,12 +293,28 @@ class OpnsenseHaproxyModule(ABC):
         }
         # Merge base spec with the subclass' own spec (self, not the base class,
         # so each module registers its own parameters)
-        argument_spec = {**base_spec, **self.ARGUMENT_SPEC}
+        subclass_spec = self.ARGUMENT_SPEC
+
+        # Deleting an object only needs its name — the type-specific parameters
+        # are not known any more, so they must not be demanded.
+        if self._raw_params().get("state") == "absent":
+            subclass_spec = {
+                key: ({**spec, "required": False} if spec.get("required") and key != "name" else spec)
+                for key, spec in self.ARGUMENT_SPEC.items()
+            }
 
         return AnsibleModule(
-            argument_spec=argument_spec,
+            argument_spec={**base_spec, **subclass_spec},
             supports_check_mode=supports_check_mode,
         )
+
+    @staticmethod
+    def _raw_params() -> Dict[str, Any]:
+        """Parameters as Ansible handed them over, before validation."""
+        try:
+            return _load_params()
+        except (Exception, SystemExit):
+            return {}
 
     # ------------------------------------------------------------------
     # Abstract methods (must be implemented by subclasses)

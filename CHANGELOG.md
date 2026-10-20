@@ -73,6 +73,21 @@ objects from the `opnsense_haproxy_*` dicts were never sent to the API.
   so a second run reported changes it could not avoid. Both helpers now match
   either form, and `_diff_state()` recognises the selection-dict shape without
   raising on plain values.
+- **Reference fields** — backends, frontends, servers, groups, actions and ACLs
+  compared the UUID keys the API reports against the *names* the user wrote, so
+  they were rewritten on every run. The diff now compares the resolved UUIDs
+  that `_build_desired_state()` already computed; the new `_reference_keys()`
+  helper in the base class reduces the selection dict, the comma-joined string
+  and a plain list to the same key list.
+- **Field names in the diffs** — the backend and frontend `_diff_state()`
+  overrides listed parameter names (`persistence_cookie_mode`,
+  `connection_behaviour`, `basic_auth_users`) while they iterate the API keys
+  (`persistence_cookiemode`, `connectionBehaviour`, `basicAuthUsers`), so those
+  fields fell through to a raw comparison and always looked changed.
+- **Action module** — `use_backend` was compared as a plain value although the
+  API reports it as a selection dict.
+- **CPU module** — `cpu_id` compared the API's option keys against the raw
+  parameter list.
 - **CPU example** — `cpu_id: x0` is not offered by the API; the example uses `x1`.
 - **Role metadata** — `galaxy.yml` dependencies and `meta/main.yml` placement
   fixed, `meta/runtime.yml` added, so the role can be installed and linted.

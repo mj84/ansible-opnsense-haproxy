@@ -279,9 +279,6 @@ class ServerModule(OpnsenseHaproxyModule):
         needs_change = False
         params = self.module.params
 
-        # Fetch template for resolving SSL references from the full API catalog
-        template = self.api.getObjectByUuid(self.OBJECT_TYPE, "")
-
         for prop, desired_value in desired.items():
             current_value = current.get(prop)
 
@@ -295,31 +292,14 @@ class ServerModule(OpnsenseHaproxyModule):
                     changes[prop] = desired_value
                     messages.append("Changing %s: %s => %s" % (prop, selected, params["mode"]))
             elif prop in ("sslCA", "sslCRL", "sslClientCertificate"):
-                # SSL references — compare resolved values
-                if prop == "sslCA":
-                    current_list = self.api.getSelectedList(current_value)
-                    if not self.api.compareLists(current_list, params["ssl_ca"]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params["ssl_ca"]))
-                elif prop == "sslCRL":
-                    current_selected = self.api.getSelected(current_value)
-                    desired_uuid = self._resolve_ssl_single_ref(
-                        params["ssl_crl"], template, "sslCRL"
-                    )
-                    if current_selected != desired_uuid:
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_selected, params["ssl_crl"]))
-                elif prop == "sslClientCertificate":
-                    current_selected = self.api.getSelected(current_value, retval="value")
-                    if current_selected != params["ssl_client_certificate"]:
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append(
-                            "Changing %s: %s => %s"
-                            % (prop, current_selected, params["ssl_client_certificate"])
-                        )
+                # SSL references — the desired value already holds the resolved
+                # UUIDs, the current one arrives as a selection dict.
+                current_keys = self._reference_keys(current_value)
+                desired_keys = self._reference_keys(desired_value)
+                if not self.api.compareLists(current_keys, desired_keys):
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append("Changing %s: %s => %s" % (prop, current_keys, desired_keys))
             elif current_value != desired_value:
                 needs_change = True
                 changes[prop] = desired_value

@@ -484,18 +484,13 @@ class BackendModule(OpnsenseHaproxyModule):
         changes = {}
         messages = []
         needs_change = False
-        params = self.module.params
 
+        # API key names — the desired state is keyed the way the API expects it
         selection_fields = ["mode", "algorithm", "proxyProtocol", "persistence",
-                            "persistence_cookie_mode", "stickiness_pattern", "tuning_http_reuse"]
-        reference_fields = {
-            "linkedServers": ("linked_servers", "linkedServers"),
-            "healthCheck": ("health_check", "healthCheck"),
-            "basicAuthUsers": ("basic_auth_users", "basicAuthUsers"),
-            "basicAuthGroups": ("basic_auth_groups", "basicAuthGroups"),
-            "linkedActions": ("linked_actions", "linkedActions"),
-            "linkedErrorfiles": ("linked_errorfiles", "linkedErrorfiles"),
-        }
+                            "persistence_cookiemode", "stickiness_pattern",
+                            "tuning_httpreuse"]
+        reference_fields = ["linkedServers", "healthCheck", "basicAuthUsers",
+                            "basicAuthGroups", "linkedActions", "linkedErrorfiles"]
 
         for prop, desired_value in desired.items():
             current_value = current.get(prop)
@@ -510,33 +505,17 @@ class BackendModule(OpnsenseHaproxyModule):
                     needs_change = True
                     changes[prop] = desired_value
                     messages.append("Changing %s: %s => %s" % (prop, selected, desired_value))
-            # Reference list fields
+            # Reference fields — the desired value already holds the resolved
+            # UUIDs, the current one arrives as a selection dict.
             elif prop in reference_fields:
-                param_name, _ = reference_fields[prop]
-                if prop == "healthCheck":
-                    # Single reference — compare by name
-                    current_ref = self.api.getSelected(current_value, retval="value")
-                    if current_ref != params[param_name]:
-                        if current_ref == "" and params[param_name] == "":
-                            pass
-                        else:
-                            needs_change = True
-                            changes[prop] = desired_value
-                            messages.append("Changing %s: %s => %s" % (prop, current_ref, params[param_name]))
-                elif prop == "linkedActions":
-                    # Order-sensitive comparison
-                    current_list = self.api.getSelectedList(current_value, retval="key")
-                    if not self.api.compareLists(current_list, params[param_name], order_sensitive=True):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params[param_name]))
-                else:
-                    # List comparison
-                    current_list = self.api.getSelectedList(current_value, retval="key")
-                    if not self.api.compareLists(current_list, params[param_name]):
-                        needs_change = True
-                        changes[prop] = desired_value
-                        messages.append("Changing %s: %s => %s" % (prop, current_list, params[param_name]))
+                current_keys = self._reference_keys(current_value)
+                desired_keys = self._reference_keys(desired_value)
+                if not self.api.compareLists(
+                    current_keys, desired_keys, order_sensitive=prop == "linkedActions"
+                ):
+                    needs_change = True
+                    changes[prop] = desired_value
+                    messages.append("Changing %s: %s => %s" % (prop, current_keys, desired_keys))
             # Simple fields
             elif current_value != desired_value:
                 needs_change = True
