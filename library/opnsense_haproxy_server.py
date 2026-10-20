@@ -213,20 +213,24 @@ class ServerModule(OpnsenseHaproxyModule):
 
     def _build_desired_state(self):
         params = self.module.params
+        # Fetch the empty server template — contains all available SSL object
+        # selection dicts so we can resolve names to UUIDs regardless of what
+        # is currently linked to the server.
+        template = self.api.getObjectByUuid(self.OBJECT_TYPE, "")
+
         # For creation, SSL references must be empty (two-step workflow)
-        # For updates, we resolve them from the current object
+        # For updates, we resolve them from the template
         if self._load_current_state() is None:
             # New object — SSL refs cleared
             ssl_ca = ""
             ssl_crl = ""
             ssl_client_certificate = ""
         else:
-            # Existing object — resolve from current state
-            current = self._load_current_state()
-            ssl_ca = self._resolve_ssl_refs(params["ssl_ca"], current, "sslCA")
-            ssl_crl = self._resolve_ssl_single_ref(params["ssl_crl"], current, "sslCRL")
+            # Existing object — resolve from template
+            ssl_ca = self._resolve_ssl_refs(params["ssl_ca"], template, "sslCA")
+            ssl_crl = self._resolve_ssl_single_ref(params["ssl_crl"], template, "sslCRL")
             ssl_client_certificate = self._resolve_ssl_single_ref(
-                params["ssl_client_certificate"], current, "sslClientCertificate"
+                params["ssl_client_certificate"], template, "sslClientCertificate"
             )
 
         return {
@@ -248,22 +252,34 @@ class ServerModule(OpnsenseHaproxyModule):
             "advanced": params["advanced"],
         }
 
-    def _resolve_ssl_refs(self, names, current, key):
-        """Resolve SSL CA names to UUIDs from the current object."""
+    def _resolve_ssl_refs(self, names, template, key):
+        """Resolve SSL CA names to UUIDs from the server template.
+
+        Uses the empty-object template which contains all available SSL
+        objects, not just the ones currently linked to the server.
+        """
         if not names:
             return ""
         uuids = []
         for name in names:
-            uuid = self.api.findValueInDict(current[key], searchvalue=name)
+            uuid = self.api.findValueInDict(
+                template[key], searchvalue=name, warn_on_duplicate=True
+            )
             if uuid != "":
                 uuids.append(uuid)
         return ",".join(uuids)
 
-    def _resolve_ssl_single_ref(self, name, current, key):
-        """Resolve a single SSL reference (CRL or client cert) from the current object."""
+    def _resolve_ssl_single_ref(self, name, template, key):
+        """Resolve a single SSL reference (CRL or client cert) from the template.
+
+        Uses the empty-object template which contains all available SSL
+        objects, not just the ones currently linked to the server.
+        """
         if not name:
             return ""
-        return self.api.findValueInDict(current[key], searchvalue=name)
+        return self.api.findValueInDict(
+            template[key], searchvalue=name, warn_on_duplicate=True
+        )
 
     def _diff_state(self, current, desired):
         """Custom diff for server — handles selection fields and SSL references."""
@@ -271,6 +287,9 @@ class ServerModule(OpnsenseHaproxyModule):
         messages = []
         needs_change = False
         params = self.module.params
+
+        # Fetch template for resolving SSL references from the full API catalog
+        template = self.api.getObjectByUuid(self.OBJECT_TYPE, "")
 
         for prop, desired_value in desired.items():
             current_value = current.get(prop)
@@ -286,17 +305,17 @@ class ServerModule(OpnsenseHaproxyModule):
                     messages.append("Changing %s: %s => %s" % (prop, selected, params["mode"]))
             elif prop in ("sslCA", "sslCRL", "sslClientCertificate"):
                 # SSL references — compare resolved values
-                current_resolved = current_value
                 if prop == "sslCA":
                     current_list = self.api.getSelectedList(current_value)
-                    desired_list = self._resolve_ssl_refs(params["ssl_ca"], current, prop)
                     if not self.api.compareLists(current_list, params["ssl_ca"]):
                         needs_change = True
                         changes[prop] = desired_value
                         messages.append("Changing %s: %s => %s" % (prop, current_list, params["ssl_ca"]))
                 elif prop == "sslCRL":
                     current_selected = self.api.getSelected(current_value)
-                    desired_uuid = self.api.findValueInDict(current_value, searchvalue=params["ssl_crl"])
+                    desired_uuid = self._resolve_ssl_single_ref(
+                        params["ssl_crl"], template, "sslCRL"
+                    )
                     if current_selected != desired_uuid:
                         needs_change = True
                         changes[prop] = desired_value

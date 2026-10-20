@@ -18,10 +18,10 @@ An Ansible role that manages HAProxy configuration **on OPNsense firewalls** via
 
 ## Critical gotchas
 
-### SSL CA / CRL / client certificate two-step workflow
-OPNsense's API does not allow querying SSL CA, CRL, or client certificate objects by name — they are referenced by internal UUIDs unknown at creation time. When a server needs one of these:
-1. Create/update the server **without** the SSL reference.
-2. Run the same task again with the SSL reference populated.
+### SSL CA / CRL / client certificate resolution
+SSL CA, CRL, and client certificate objects are referenced by internal UUIDs, but modules resolve names to UUIDs at runtime using the empty-object template (which contains the full API catalog of all SSL objects). No two-step workflow is required — you can specify SSL references when creating a server.
+
+If multiple SSL objects share the same description, the module warns and uses the last match (YAML-style dedup). Descriptions should be kept unique to avoid ambiguity.
 
 ### Dependency ordering in `tasks/main.yml`
 The task include order is deliberate and reflects OPNsense's internal dependency graph:

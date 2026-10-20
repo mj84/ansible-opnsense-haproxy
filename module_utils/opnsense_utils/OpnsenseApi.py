@@ -331,6 +331,7 @@ class Haproxy:
         searchvalue: str,
         prop: str = "value",
         retval: str = "key",
+        warn_on_duplicate: bool = False,
     ) -> str:
         """Find the key (or value) whose *prop* matches *searchvalue*.
 
@@ -339,18 +340,34 @@ class Haproxy:
             searchvalue: Value to match against *prop*.
             prop: Property name to compare (default ``'value'``).
             retval: Return ``'key'`` or *prop* itself.
+            warn_on_duplicate: If ``True``, warn when multiple entries match
+                and return the last one (YAML-style dedup).
 
         Returns:
             The matching key or property value, or ``''`` if not found.
         """
+        import warnings
+
+        matches: List[Tuple[str, Dict[str, Any]]] = []
         for key, value in valuesdict.items():
             if prop in value and value[prop] == searchvalue:
-                if retval == "key":
-                    return key
-                if retval not in value:
-                    raise KeyError("%s is no key in dict %s" % (retval, value))
-                return value[retval]
-        return ""
+                matches.append((key, value))
+
+        if not matches:
+            return ""
+
+        if warn_on_duplicate and len(matches) > 1:
+            warnings.warn(
+                "Multiple SSL objects found with description '%s': "
+                "%d matches. Using the last one." % (searchvalue, len(matches))
+            )
+
+        last_key, last_value = matches[-1]
+        if retval == "key":
+            return last_key
+        if retval not in last_value:
+            raise KeyError("%s is no key in dict %s" % (retval, last_value))
+        return last_value[retval]
 
     def getSslObjectKeys(
         self, ssl_objects: Dict[str, Any], names: List[str]
