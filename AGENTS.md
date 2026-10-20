@@ -4,10 +4,14 @@
 An Ansible role that manages HAProxy configuration **on OPNsense firewalls** via the OPNsense plugin API. It ships 12 custom Python modules (one per HAProxy object type) and a shared API client (`module_utils/opnsense_utils/`).
 
 ## Running / Testing
-- **Lint:** `ansible-lint` (config in `.ansible-lint`) and `flake8 library/ module_utils/` (config in `setup.cfg`)
+- **Lint:** `ansible-lint` (config in `.ansible-lint`) and `flake8 library/ module_utils/ tests/` (config in `setup.cfg`)
 - **Unit tests:** `pytest tests/unit/` (requires `pytest`)
+- **End-to-end tests:** `pytest tests/e2e/` — runs the real role through
+  `ansible-playbook` against `tests/mock_api/server.py`, a mock of the OPNsense
+  settings API. Needs `ansible-core` and `requests` in the test interpreter, no
+  firewall. See `tests/mock_api/README.md`.
 - **Integration test:** `tests/test.yml` — requires a live OPNsense box
-- **CI:** `.github/workflows/ci.yml` runs ansible-lint, flake8 and pytest
+- **CI:** `.github/workflows/ci.yml` runs ansible-lint, flake8, pytest (unit) and pytest (e2e)
 
 ## Architecture
 - `library/` — 12 custom Ansible modules. Each inherits from `OpnsenseHaproxyModule` base class.
@@ -16,8 +20,19 @@ An Ansible role that manages HAProxy configuration **on OPNsense firewalls** via
 - `tasks/` — `main.yml` plus one task file per object type, included in dependency order.
 - `defaults/main.yml` — all role variables documented with examples.
 - `vars/main.yml` — `opnsense_haproxy_connection_args`, the API arguments merged into every module call. Not meant to be overridden by users.
+- `tests/unit/` — pytest, no network. `tests/mock_api/` — the mock settings API
+  and the playbooks that drive it. `tests/e2e/` — pytest, runs the role against
+  that mock through `ansible-playbook`.
 
 ## Critical gotchas
+
+### The role name has dots
+Playbooks address the role as `local.maj.opnsense.haproxy`, and it must be
+installed under a directory of that exact name. That name is **not** a valid
+Galaxy role or collection name (Galaxy forbids dots), so there is no `galaxy.yml`
+— it could not express the name and `ansible-lint` rejects it — and `role-name`
+is in the `.ansible-lint` `skip_list`. Do not "fix" either of those by renaming
+the role or re-adding `galaxy.yml`.
 
 ### Task files pass arguments as one merged template
 Each `tasks/manage_<type>.yml` loops over its `opnsense_haproxy_<type>s` dict and hands the module a single templated argument set:

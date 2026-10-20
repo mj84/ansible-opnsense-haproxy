@@ -1,0 +1,35 @@
+---
+# Removal fixture: deleting an object must need only its name.
+#
+# Run after site.yml. The two existing objects are deleted, the third is
+# already gone and must report no change.
+#
+#   ansible-playbook -i tests/mock_api/inventory tests/mock_api/absent.yml
+
+- name: Remove HAProxy objects by name only
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    mock_api_url: "http://127.0.0.1:8761"
+    opnsense_api_url: "{{ mock_api_url }}"
+    opnsense_api_key: testkey
+    opnsense_api_secret: testsecret
+    opnsense_api_ssl_verify: false
+
+    # No expression, no address: state: absent must not demand them.
+    opnsense_haproxy_acls:
+      api_path:
+        state: absent
+    opnsense_haproxy_servers:
+      web1:
+        state: absent
+    opnsense_haproxy_frontends:
+      nonexistent:
+        state: absent
+
+  tasks:
+    - name: Apply HAProxy configuration
+      ansible.builtin.include_role:
+        name: local.maj.opnsense.haproxy

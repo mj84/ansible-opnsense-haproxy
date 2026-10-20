@@ -28,12 +28,19 @@
 - **Custom exceptions** — `OpnsenseApiError`, `ObjectNotFoundError`, `ObjectTypeError`, `ConfigTestError`.
 - **Type hints and docstrings** — All API client methods are now typed and documented.
 - **Full module documentation** — Every module now has complete `DOCUMENTATION`, `EXAMPLES`, and `RETURN` blocks.
-- **`galaxy.yml`** — Proper Ansible Galaxy metadata.
 - **`.ansible-lint`** — Linting configuration.
 - **Structured tasks** — Each object type has its own task file (`manage_acls.yml`, `manage_backends.yml`, etc.).
 - **`defaults/main.yml`** — All role variables documented with examples.
 - **Example playbooks** — `examples/site.yml` and `examples/group_vars/all.yml`.
 - **`CHANGELOG.md`** — Version history.
+- **Mock OPNsense API** — `tests/mock_api/server.py` reproduces the settings API
+  over HTTP, including the empty-object template, selection fields reported as
+  `{"<option>": {"selected": "1", …}}`, and the plain-string `result` of
+  configtest and reconfigure.
+- **End-to-end tests** — `tests/e2e/` runs the real role through
+  `ansible-playbook` against that mock: creation of all twelve object types,
+  idempotency on a second run, references stored as UUIDs, `state: absent` by
+  name alone, and `--check` not writing.
 
 ### Changed
 
@@ -41,6 +48,10 @@
 - **API client** — `iteritems()` replaced with `.items()` for Python 3 compatibility.
 - **API client** — `compareLists()` is now a `@staticmethod`.
 - **Server module** — SSL CA/CRL/client certificate names are resolved when the server is created, so one step is enough.
+- **Role name** — the role is addressed as `local.maj.opnsense.haproxy` in the
+  README, examples, tests and metadata. `galaxy.yml` was dropped: a Galaxy role
+  or collection name cannot contain dots, so it could not carry that name.
+  Install the role into a directory of that name (see README, "Role name").
 
 ### Fixed
 
@@ -97,4 +108,6 @@ objects from the `opnsense_haproxy_*` dicts were never sent to the API.
 
 1. Update your playbooks to use the new parameter names (`name` instead of `acl_name`, etc.).
 2. Ensure Python 3 is available on the controller.
-3. Run `ansible-galaxy install local.maj_opnsense_haproxy` if installing from Galaxy.
+3. Install the role under the name `local.maj.opnsense.haproxy` — the directory
+   playbooks refer to. It is distributed through git, not Galaxy, so use a
+   `requirements.yml` with a `git+` source (see README.md, "Role name").

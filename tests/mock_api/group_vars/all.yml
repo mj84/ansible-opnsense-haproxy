@@ -1,0 +1,4 @@
+---
+# Run the modules under the same interpreter that runs ansible-playbook, so a
+# local run against the mock does not pick another Python without `requests`.
+ansible_python_interpreter: "{{ ansible_playbook_python }}"

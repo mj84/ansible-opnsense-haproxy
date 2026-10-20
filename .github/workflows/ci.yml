@@ -27,7 +27,7 @@ jobs:
         run: ansible-lint
 
       - name: Run flake8
-        run: flake8 library/ module_utils/
+        run: flake8 library/ module_utils/ tests/
 
   test:
     name: Unit Tests
@@ -45,3 +45,23 @@ jobs:
 
       - name: Run pytest
         run: pytest tests/unit/ -v
+
+  e2e:
+    name: End-to-End (mock API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The role's modules run on the controller in these tests, so the test
+      # interpreter needs requests as well as ansible-core.
+      - name: Install dependencies
+        run: pip install ansible-core requests pytest
+
+      - name: Run pytest against the mock OPNsense API
+        run: pytest tests/e2e/ -v

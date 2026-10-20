@@ -1,0 +1,116 @@
+---
+# End-to-end fixture: one object of every managed type, against the mock API.
+#
+# Usage (see tests/mock_api/README.md, or run the pytest suite in tests/e2e/):
+#   python tests/mock_api/server.py 8761 &
+#   ansible-playbook -i tests/mock_api/inventory tests/mock_api/site.yml
+#
+# Point it elsewhere with -e mock_api_url=http://host:port, and change exactly
+# one backend setting with -e backend_algorithm=source to exercise the diff.
+
+- name: Configure HAProxy on OPNsense
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    mock_api_url: "http://127.0.0.1:8761"
+    opnsense_api_url: "{{ mock_api_url }}"
+    opnsense_api_key: testkey
+    opnsense_api_secret: testsecret
+    opnsense_api_ssl_verify: false
+    opnsense_haproxy_reload: true
+
+    # Single knob to flip so a run can report exactly one change.
+    backend_algorithm: roundrobin
+
+    opnsense_haproxy_acls:
+      api_path:
+        expression: path_beg
+        value: /api
+        description: API path
+    opnsense_haproxy_cpus:
+      haproxy_cpu0:
+        enabled: true
+        process_id: x1
+        thread_id: x1
+        cpu_id: ["x1"]
+    opnsense_haproxy_errorfiles:
+      custom_503:
+        code: "503"
+        description: Maintenance page
+        content: "<html>maintenance</html>"
+    opnsense_haproxy_mapfiles:
+      redirect_map:
+        description: Path to backend map
+        content: "/api api_pool\n"
+    opnsense_haproxy_healthchecks:
+      http_check:
+        type: http
+        description: HTTP health check
+        interval: 5s
+        http_method: GET
+        http_uri: /health
+    opnsense_haproxy_luas:
+      my_script:
+        enabled: true
+        description: Custom Lua script
+        content: "print('hi')\n"
+    opnsense_haproxy_servers:
+      web1:
+        address: 10.0.0.1
+        port: "8080"
+        description: Web server 1
+      web_tls:
+        address: 10.0.0.2
+        port: "443"
+        mode: active
+        ssl: true
+        ssl_ca: [my_ca]
+        ssl_crl: my_crl
+        ssl_client_certificate: my_cert
+    opnsense_haproxy_users:
+      admin:
+        password: s3cret
+        description: Administrator
+    opnsense_haproxy_groups:
+      admins:
+        description: Administrator group
+        members: [admin]
+    opnsense_haproxy_backends:
+      api_pool:
+        mode: http
+        basic_auth_enabled: true
+        basic_auth_users: [admin]
+        basic_auth_groups: [admins]
+        algorithm: "{{ backend_algorithm }}"
+        linked_servers: [web1]
+        health_check: http_check
+    opnsense_haproxy_actions:
+      api_redirect:
+        type: use_backend
+        value: api_pool
+        linked_acls: [api_path]
+    opnsense_haproxy_frontends:
+      web_http:
+        bind: ["*:80"]
+        mode: http
+        default_backend: api_pool
+        linked_actions: [api_redirect]
+        basic_auth_enabled: true
+        basic_auth_users: [admin]
+        basic_auth_groups: [admins]
+      web_https:
+        bind: ["*:443"]
+        mode: http
+        ssl_enabled: true
+        ssl_certificates: [my_cert]
+        ssl_client_auth_enabled: true
+        ssl_client_auth_cas: [my_ca]
+        ssl_client_auth_crls: [my_crl]
+        default_backend: api_pool
+
+  tasks:
+    - name: Apply HAProxy configuration
+      ansible.builtin.include_role:
+        name: local.maj.opnsense.haproxy

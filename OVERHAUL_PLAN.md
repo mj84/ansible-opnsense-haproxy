@@ -11,6 +11,11 @@
 ### 1.1 Add `galaxy.yml`
 Modern Ansible roles require this. Populate author, description, license, version, and tags. Set `min_ansible_version` to 2.15+ (Python 3 only).
 
+> **Outcome:** added, then removed again. `galaxy.yml` is a *collection* manifest
+> and its `name` must match `^[a-z][a-z0-9_]+$`, so it cannot carry the role's
+> name, `local.maj.opnsense.haproxy`. Role metadata lives in `meta/main.yml`;
+> `role-name` is skipped in `.ansible-lint`.
+
 ### 1.2 Add `requirements.yml`
 Document the `community.general` and `ansible.netcommon` collection dependencies (if any are needed). Currently there are none — the role only needs `requests` on the controller, which is standard.
 
@@ -169,6 +174,12 @@ Declare Ansible collection compatibility and deprecation metadata.
 ---
 
 ## Phase 5 — Testing Infrastructure
+
+> **Status.** Unit tests (`tests/unit/`) and an end-to-end suite against a mock
+> of the OPNsense settings API (`tests/e2e/`, `tests/mock_api/`) are in place and
+> run in CI. What remains below is Molecule against a **live** OPNsense box, which
+> the mock cannot cover: real API quirks, HAProxy actually starting, and the
+> plugin's referential integrity.
 
 ### 5.1 Install `molecule`
 `molecule` is the standard for testing Ansible roles. Configure it with:
@@ -341,14 +352,14 @@ Start with a v2.0.0 entry documenting all breaking changes from the refactor.
 
 | Step | What | Effort | Risk |
 |------|------|--------|------|
-| 1 | `galaxy.yml` + `.ansible-lint` + Python 3 fixes | Small | Low |
+| 1 | `.ansible-lint` + Python 3 fixes (`galaxy.yml` dropped again — the role name has dots) | Small | Low |
 | 2 | API client: error handling, type hints, unit tests | Medium | Low |
 | 3 | Base module class `OpnsenseModule.py` | Medium | Medium |
 | 4 | Refactor 2–3 simple modules first (lua, mapfile, errorfile) | Medium | Medium |
 | 5 | Refactor remaining 11 modules | Large | Medium |
 | 6 | Add DOCUMENTATION/EXAMPLES/RETURN to all modules | Medium | Low |
 | 7 | `defaults/main.yml` + `tasks/main.yml` improvements | Medium | Low |
-| 8 | Molecule + integration tests | Large | High |
+| 8 | Molecule + integration tests (mock-API e2e already done in `tests/e2e/`) | Large | High |
 | 9 | GitHub Actions CI | Small | Low |
 | 10 | Rewrite README.md + examples | Medium | Low |
 

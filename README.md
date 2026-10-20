@@ -28,6 +28,32 @@ Ansible role for managing HAProxy configuration on **OPNsense firewalls** via th
 - API credentials with HAProxy management permissions
 - `requests` Python library (usually pre-installed)
 
+## Role name
+
+The role is addressed as **`local.maj.opnsense.haproxy`**, the name used in every
+playbook in this repository. Install or check it out under that exact name so
+`include_role` can find it:
+
+```bash
+git clone https://github.com/mj84/ansible-opnsense-haproxy \
+  roles/local.maj.opnsense.haproxy
+```
+
+or, in a `requirements.yml` (the `git+` prefix marks the source as a git
+repository rather than a Galaxy role):
+
+```yaml
+---
+roles:
+  - name: local.maj.opnsense.haproxy
+    src: git+https://github.com/mj84/ansible-opnsense-haproxy
+    version: main
+```
+
+The dotted name is a valid role directory name but not a valid Ansible Galaxy
+role name (Galaxy forbids dots), so this role is distributed through git rather
+than Galaxy, and `role-name` is skipped in `.ansible-lint`.
+
 ## Role Variables
 
 ### API Connection (required)
@@ -151,6 +177,31 @@ Each module accepts the common API parameters (`api_url`, `api_key`, `api_secret
 ```sh
 ANSIBLE_LIBRARY=library ansible-doc opnsense_haproxy_<type>
 ```
+
+## Testing
+
+```sh
+pytest tests/unit/                     # unit tests, no firewall needed
+ansible-lint                           # production profile
+flake8 library/ module_utils/ tests/   # style
+```
+
+`tests/e2e/` runs the real role through `ansible-playbook` against
+`tests/mock_api/server.py`, a mock of the OPNsense HAProxy settings API. It
+needs `ansible-core` and `requests` in the test interpreter and no firewall:
+
+```sh
+pytest tests/e2e/
+```
+
+The mock reproduces the API shapes the role has to cope with — the empty-object
+template used to resolve names to UUIDs, selection fields reported as
+`{"<option>": {"selected": "1", …}}`, and the plain-string `result` of
+configtest/reconfigure. The suite asserts that a first run creates all twelve
+object types, that a second run changes nothing, that references are stored as
+UUIDs, and that `state: absent` needs only a name.
+
+`tests/test.yml` is the integration playbook for a **live** OPNsense box.
 
 ## License
 

@@ -1,0 +1,9 @@
+# Inventory for the mock-API playbooks. The role talks to the mock over HTTP,
+# so the "target" is the controller itself.
+#
+# The modules need `requests` in the interpreter they run under. The playbooks
+# pin that to the interpreter running ansible-playbook, so install requests
+# wherever you run them:  pip install requests
+
+[local]
+localhost ansible_connection=local

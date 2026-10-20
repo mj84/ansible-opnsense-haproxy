@@ -3,6 +3,10 @@ profile: production
 skip_list:
   - yaml[line-length]
   - yaml[truthy]
+  # The role is deliberately addressed as local.maj.opnsense.haproxy, which is
+  # a valid role directory name but not a valid Galaxy role name (no dots).
+  # See README.md, "Role name".
+  - role-name
 warn_list:
   - experimental
   - no-changed-when

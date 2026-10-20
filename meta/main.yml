@@ -1,4 +1,10 @@
 ---
+# Role name: local.maj.opnsense.haproxy
+#
+# Playbooks address the role by that name, so install or check it out into a
+# directory of the same name (see README.md, "Role name"). It is not a Galaxy
+# role name — Galaxy forbids dots — which is why role-name is skipped in
+# .ansible-lint.
 galaxy_info:
   author: Markus Joosten
   description: Ansible role for managing HAProxy configuration on OPNsense firewalls via the OPNsense plugin API.
